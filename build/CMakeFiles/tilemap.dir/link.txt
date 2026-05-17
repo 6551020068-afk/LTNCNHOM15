@@ -1,0 +1,3 @@
+C:\mingw64\bin\cmake.exe -E rm -f CMakeFiles\tilemap.dir/objects.a
+C:\mingw64\bin\ar.exe qc CMakeFiles\tilemap.dir/objects.a @CMakeFiles\tilemap.dir\objects1.rsp
+C:\mingw64\bin\c++.exe -Wl,--whole-archive CMakeFiles\tilemap.dir/objects.a -Wl,--no-whole-archive -o tilemap.exe -Wl,--out-implib,libtilemap.dll.a -Wl,--major-image-version,0,--minor-image-version,0 @CMakeFiles\tilemap.dir\linkLibs.rsp

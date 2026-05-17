@@ -1,0 +1,121 @@
+#pragma once
+#include <SFML/Graphics.hpp>
+#include <array>
+#include <string>
+#include <unordered_map>
+
+#include "BulletManager.hpp"
+#include "Camera.hpp"
+#include "CharacterClass.hpp"
+#include "CollisionMap.hpp"
+#include "Demonlora.hpp"
+#include "ExpManager.hpp"
+#include "MenuSystem.hpp"
+#include "MonsterManager.hpp"
+#include "Player.hpp"
+#include "PlayerStats.hpp"
+#include "SaveSystem.hpp"
+#include "ScoreSystem.hpp"
+#include "SkillManager.hpp"  // ← HolyBibleSkill đã được include bên trong
+#include "SoundManager.hpp"
+#include "TileMap.hpp"
+#include "WaveManager.hpp"
+#include "dokho.hpp"
+
+// skillSachthanh.hpp không cần include riêng — SkillManager.hpp đã kéo vào
+
+enum class UpgradeType {
+  Damage,
+  AttackSpeed,
+  Regen,
+  Knife,
+  LightningRing,
+  Garlic,
+  HolyBible  // ← Sách Thánh / Thanh Kinh Quy
+};
+
+struct UpgradeOption {
+  UpgradeType type;
+  std::string title;
+  std::string desc;
+  sf::Color color = sf::Color::White;
+};
+
+enum class GameState { Menu, Playing, GameOver, Victory };
+
+class Game {
+ public:
+  Game();
+  ~Game() = default;
+  void run();
+
+ private:
+  void processEvents(const sf::Event& event);
+  void update(float dt);
+  void render();
+  void renderHUD();
+  void renderUpgradeScreen();
+  void renderGameOver();
+  void renderVictory();
+
+  void buildUpgradeOptions();
+  void applyUpgrade(UpgradeType t);
+  void updateHover(sf::Vector2i mousePixel);
+  sf::Vector2f mouseToWorld() const;
+
+  void applyCharacterClass(int charIndex);
+  void applyDifficulty();
+  void endGame();
+  void restartGame();
+
+  sf::RenderWindow window_;
+  CollisionMap colMap_;
+  TileMap tileMap_;
+  Player player_;
+  Camera camera_;
+  sf::Clock clock_;
+
+  MonsterManager monsters_;
+  BulletManager bullets_;
+  ExpManager expManager_;
+  PlayerStats stats_;
+  SkillManager
+      skillMgr_;  // ← Bible nằm trong SkillManager, không còn bible_ riêng
+  WaveManager waveMgr_;
+
+  ScoreSystem score_;
+  SaveData saveData_;
+  Difficulty difficulty_ = Difficulty::Easy;
+
+  GameState gameState_ = GameState::Menu;
+  bool paused_ = false;
+  int hoveredCard_ = -1;
+  int selectedChar_ = 0;
+  float playerSpeed_ = Player::SPEED;
+
+  std::array<UpgradeOption, 3> upgradeOptions_;
+  std::unordered_map<UpgradeType, sf::Texture> upgradeIcons_;
+  float levelUpTimer_ = 0.f;
+  float victoryAnimTime_ = 0.f;
+
+  std::string hudMessage_;
+  float hudMessageTimer_ = 0.f;
+
+  sf::Font font_;
+  bool fontLoaded_ = false;
+  MenuSystem menu_{window_, font_};
+
+  static constexpr float MAX_DT = 0.05f;
+  bool debugMode_ = false;
+  bool pauseMenuOpen_ = false;
+  bool settingsOpen_ = false;
+
+  void renderPauseMenu();
+  void handlePauseMenuClick(sf::Vector2f mouseUI);
+
+  // ── Final Boss tracking ───────────────────────────────────────────────────
+  DemonLord* finalBossPtr_ = nullptr;
+  DemonPhase lastDemonPhase_ = DemonPhase::Phase1;
+  bool victoryShown_ = false;
+  int orbValue(int base) const;
+};

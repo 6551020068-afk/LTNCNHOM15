@@ -1,0 +1,48 @@
+cmake_minimum_required(VERSION 3.16)
+project(TilemapViewer LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+set(SRC ${CMAKE_SOURCE_DIR})
+set(SFML_DIR "C:/SFML-3.0.0_mingw64/lib/cmake/SFML")
+
+find_package(SFML 3 REQUIRED COMPONENTS Graphics Window System Audio)
+
+add_executable(tilemap
+    ${SRC}/main.cpp
+    ${SRC}/Game.cpp
+    ${SRC}/TileMap.cpp
+    ${SRC}/Player.cpp
+    ${SRC}/Camera.cpp
+    ${SRC}/MapData.cpp
+    ${SRC}/FlyEye.cpp
+    ${SRC}/Bullet.cpp
+    ${SRC}/BulletManager.cpp
+    ${SRC}/MonsterManager.cpp
+    ${SRC}/ExpManager.cpp
+    ${SRC}/Zombie.cpp
+    ${SRC}/Ghost.cpp
+    
+)
+
+target_include_directories(tilemap PRIVATE ${SRC})
+
+target_link_libraries(tilemap PRIVATE
+    SFML::Graphics
+    SFML::Window
+    SFML::System
+    SFML::Audio
+)
+
+if(WIN32)
+    add_custom_command(TARGET tilemap POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_RUNTIME_DLLS:tilemap>
+            $<TARGET_FILE_DIR:tilemap>
+        COMMAND_EXPAND_LISTS
+    )
+endif()
+file(COPY "${CMAKE_CURRENT_SOURCE_DIR}/hinh anh" 
+     DESTINATION "${CMAKE_CURRENT_BINARY_DIR}")
+     
