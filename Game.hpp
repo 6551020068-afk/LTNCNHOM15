@@ -16,13 +16,13 @@
 #include "PlayerStats.hpp"
 #include "SaveSystem.hpp"
 #include "ScoreSystem.hpp"
-#include "SkillManager.hpp"  // ← HolyBibleSkill đã được include bên trong
+#include "SkillManager.hpp"  
 #include "SoundManager.hpp"
 #include "TileMap.hpp"
 #include "WaveManager.hpp"
 #include "dokho.hpp"
 
-// skillSachthanh.hpp không cần include riêng — SkillManager.hpp đã kéo vào
+
 
 enum class UpgradeType {
   Damage,
@@ -31,7 +31,7 @@ enum class UpgradeType {
   Knife,
   LightningRing,
   Garlic,
-  HolyBible  // ← Sách Thánh / Thanh Kinh Quy
+  HolyBible  
 };
 
 struct UpgradeOption {
@@ -80,7 +80,7 @@ class Game {
   ExpManager expManager_;
   PlayerStats stats_;
   SkillManager
-      skillMgr_;  // ← Bible nằm trong SkillManager, không còn bible_ riêng
+      skillMgr_;  
   WaveManager waveMgr_;
 
   ScoreSystem score_;

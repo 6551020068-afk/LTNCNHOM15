@@ -87,9 +87,11 @@ class HolyBibleSkill {
     evoFlashTimer_ = 1.2f;  // flash 1.2 giây sau khi evolve
     books_ = std::min(books_ + 2, 7);
     damageMult_ *= 2.0f;
-    rotSpeed_ += 0.8f;
+    rotSpeed_ +=
+        3.5f;  // Tăng mạnh tốc độ xoay khi Evolve (có thể thay đổi số này)
     hitboxMonster_ = 26.f;
-    orbitRadius_ = std::max(orbitRadius_, 100.f);
+    orbitRadius_ = std::max(orbitRadius_ + 60.f,
+                            160.f);  // Tăng mạnh phạm vi (range) khi Evolve
     cooldownMax_ = std::max(cooldownMax_ - 0.4f, 0.25f);
     return true;
   }
@@ -234,11 +236,11 @@ class HolyBibleSkill {
       const float s = bookScale_;  // shorthand
       // Dùng texture evolved nếu có, fallback về tex_ thường
       const bool useEvoTex = evolved_ && texEvoLoaded_;
-      const bool useNormTex = !evolved_ && texLoaded_;
+      const bool useNormTex = texLoaded_;
       const bool useFallback = !(useEvoTex || useNormTex);
 
       if (!useFallback) {
-        sf::Sprite spr(evolved_ ? texEvo_ : tex_);
+        sf::Sprite spr(useEvoTex ? texEvo_ : tex_);
         spr.setScale({2.f * s, 2.f * s});
         spr.setOrigin({8.f, 8.f});
         spr.setPosition(pos);
@@ -377,7 +379,7 @@ class HolyBibleSkill {
         books_ = 1;
         cooldownMax_ = 2.0f;
         damageMult_ = 1.2f;
-        orbitRadius_ = 75.f;
+        orbitRadius_ = 100.f;  // Tầm xa cơ bản ban đầu (mặc định cũ là 75)
         rotSpeed_ = 3.f;
         break;
       case 1:
@@ -388,7 +390,8 @@ class HolyBibleSkill {
         damageMult_ += 0.4f;
         break;
       case 3:
-        orbitRadius_ = std::min(orbitRadius_ + 16.f, 120.f);
+        orbitRadius_ = std::min(orbitRadius_ + 25.f,
+                                150.f);  // Tăng tầm bay xa hơn khi nâng cấp
         rotSpeed_ = std::min(rotSpeed_ + 0.4f, 4.0f);
         break;
       case 4:
