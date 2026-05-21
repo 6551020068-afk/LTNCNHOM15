@@ -25,10 +25,10 @@ using namespace Constants;
 // ════════════════════════════════════════════════════════════
 struct BossBulletLive {
   sf::Vector2f pos;
-  sf::Vector2f dir;  // đã normalize
+  sf::Vector2f dir;
   float speed = 240.f;
-  float damage = 2.f;
-  float life = 4.f;  // giây tồn tại tối đa
+  float damage = 5.f;
+  float life = 8.f;  // giây tồn tại tối đa
 };
 
 static std::vector<BossBulletLive>
@@ -96,6 +96,7 @@ Game::Game()
   SoundManager::get().init();
   SoundManager::get().playMusic(SoundManager::BGM::MENU_BGM);
   HolyBibleSkill::loadTexture("hinh anh\\Sprite-King_Bible.png");
+  HolyBibleSkill::loadEvolvedTexture("hinh anh\\Sprite-Unholy_Vespers.png");
 
   // Tải các ảnh cho bảng nâng cấp kỹ năng
   upgradeIcons_[UpgradeType::Damage].loadFromFile("hinh anh\\icon_damage.png");
@@ -117,6 +118,7 @@ Game::Game()
             << "  F2: Spawn Mini Boss (FlyEye)\n"
             << "  F3: Spawn Mini Boss (Ghost)\n"
             << "  F4: Spawn Final Boss (DemonLord)\n"
+            << "  F5/F6: Ep Demon Lord sang Phase 2/3\n"
             << "  L : Win game ngay lap tuc\n"
             << "  N : Len cap / mo bang chon ky nang\n\n";
 }
@@ -617,6 +619,24 @@ void Game::processEvents(const sf::Event& event) {
           hudMessage_ = "[F4] DEMON LORD XUAT HIEN! CHUC MAY MAN!";
           hudMessageTimer_ = 3.0f;
           SoundManager::get().play(SoundManager::SFX::BOSS_APPEAR);
+        }
+        break;
+
+      // F5: Ép DemonLord sang Phase 2
+      case sf::Keyboard::Key::F5:
+        if (gameState_ == GameState::Playing && finalBossPtr_) {
+          finalBossPtr_->debugForcePhase(2);
+          hudMessage_ = "[F5] FORCE PHASE 2!";
+          hudMessageTimer_ = 2.0f;
+        }
+        break;
+
+      // F6: Ép DemonLord sang Phase 3
+      case sf::Keyboard::Key::F6:
+        if (gameState_ == GameState::Playing && finalBossPtr_) {
+          finalBossPtr_->debugForcePhase(3);
+          hudMessage_ = "[F6] FORCE PHASE 3!";
+          hudMessageTimer_ = 2.0f;
         }
         break;
 

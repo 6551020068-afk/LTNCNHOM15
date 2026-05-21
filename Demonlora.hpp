@@ -323,6 +323,18 @@ class DemonLord : public IMonster {
 
   bool isFinalBoss() const { return true; }
 
+  // ── Debug / Demo: Ép Phase ──────────────────────────────
+  void debugForcePhase(int phaseNum) {
+    if (phaseNum == 1) {
+      hp_ = maxHp_;  // Đầy máu
+    } else if (phaseNum == 2) {
+      hp_ = static_cast<int>(maxHp_ * 0.59f);  // < 60% máu
+    } else if (phaseNum == 3) {
+      hp_ = static_cast<int>(maxHp_ * 0.29f);  // < 30% máu
+    }
+    if (hp_ <= 0) hp_ = 1;  // Safeguard để boss không chết ngay
+  }
+
  private:
   // ── tickAttack: override để tích vào pendingMeleeDamage_ ─
   // IMonster::tickAttack gọi addPendingDamage() → player nhận 2 lần.
