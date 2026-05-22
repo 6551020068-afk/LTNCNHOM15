@@ -94,15 +94,10 @@ Game::Game()
 
   menu_.init();
   SoundManager::get().init();
-  SoundManager::get().playMusic(SoundManager::BGM::MENU_BGM);
   HolyBibleSkill::loadTexture("hinh anh\\Sprite-King_Bible.png");
   HolyBibleSkill::loadEvolvedTexture("hinh anh\\Sprite-Unholy_Vespers.png");
 
   // Tải các ảnh cho bảng nâng cấp kỹ năng
-  upgradeIcons_[UpgradeType::Damage].loadFromFile("hinh anh\\icon_damage.png");
-  upgradeIcons_[UpgradeType::AttackSpeed].loadFromFile(
-      "hinh anh\\icon_attackspeed.png");
-  upgradeIcons_[UpgradeType::Regen].loadFromFile("hinh anh\\icon_regen.png");
   upgradeIcons_[UpgradeType::Knife].loadFromFile(
       "hinh anh\\icon_knife.png");  // Sửa lại thành icon-Knife.png nếu ảnh của
                                     // bạn tên như vậy
@@ -183,7 +178,6 @@ void Game::applyDifficulty() {
 // ════════════════════════════════════════════════════════════
 void Game::endGame() {
   gameState_ = GameState::GameOver;
-  SoundManager::get().play(SoundManager::SFX::PLAYER_DIE);
   SoundManager::get().playMusic(SoundManager::BGM::GAMEOVER_BGM, false);
 
   saveData_.lastScore = score_.score;
@@ -338,11 +332,10 @@ void Game::update(float dt) {
     auto* m = static_cast<IMonster*>(zap.monster);
     if (!m || !m->isAlive()) continue;
     m->takeHit(zap.damage);
-    SoundManager::get().play(SoundManager::SFX::LIGHTNING);
+    SoundManager::get().playVaried(SoundManager::SFX::HIT_MONSTER);
     if (!m->isAlive()) {
       expManager_.spawnOrb(zap.pos, orbValue(m->getExpValue()));
       score_.addKill(m->getTypeId());
-      SoundManager::get().playVaried(SoundManager::SFX::MONSTER_DIE);
     }
   }
 
@@ -351,11 +344,10 @@ void Game::update(float dt) {
     if (!m || !m->isAlive()) continue;
     m->applyKnockback(hit.knockbackDir, hit.knockbackForce);
     m->takeHit(hit.damage);
-    SoundManager::get().play(SoundManager::SFX::GARLIC_TICK);
+    SoundManager::get().playVaried(SoundManager::SFX::HIT_MONSTER);
     if (!m->isAlive()) {
       expManager_.spawnOrb(hit.monsterPos, orbValue(m->getExpValue()));
       score_.addKill(m->getTypeId());
-      SoundManager::get().playVaried(SoundManager::SFX::MONSTER_DIE);
       if (skillMgr_.garlicCanHeal()) stats_.heal(0.2f);
     }
   }
@@ -365,11 +357,10 @@ void Game::update(float dt) {
     if (!m || !m->isAlive()) continue;
     m->applyKnockback(hit.knockbackDir, hit.knockback);
     m->takeHit(hit.damage);
-    SoundManager::get().play(SoundManager::SFX::HIT_MONSTER);
+    SoundManager::get().playVaried(SoundManager::SFX::HIT_MONSTER);
     if (!m->isAlive()) {
       expManager_.spawnOrb(hit.monsterPos, orbValue(m->getExpValue()));
       score_.addKill(m->getTypeId());
-      SoundManager::get().playVaried(SoundManager::SFX::MONSTER_DIE);
     }
   }
 
@@ -377,8 +368,6 @@ void Game::update(float dt) {
   for (auto& k : bulletKills) {
     expManager_.spawnOrb(k.pos, orbValue(k.expValue));
     score_.addKill(k.typeId);
-    SoundManager::get().play(SoundManager::SFX::HIT_MONSTER);
-    SoundManager::get().playVaried(SoundManager::SFX::MONSTER_DIE);
   }
 
   // ── DemonLord: poll outputs trước waveMgr.update ─────────
@@ -405,7 +394,6 @@ void Game::update(float dt) {
     // AoE pulse (Phase 3)
     if (demon->hasPendingAoe()) {
       for (auto& pulse : demon->getPendingAoe()) {
-        SoundManager::get().play(SoundManager::SFX::BOSS_APPEAR);
         sf::Vector2f diff = pPos - pulse.origin;
         float dist2 = diff.x * diff.x + diff.y * diff.y;
         if (dist2 < pulse.radius * pulse.radius && dist2 > 0.f) {
@@ -435,7 +423,6 @@ void Game::update(float dt) {
       } else if (curPhase == DemonPhase::Phase3) {
         hudMessage_ = "DEMON LORD - ENRAGE! Toc do 120px/s!";
         hudMessageTimer_ = 3.f;
-        SoundManager::get().play(SoundManager::SFX::BOSS_APPEAR);
       }
     }
 
@@ -448,8 +435,6 @@ void Game::update(float dt) {
   if (auto msg = waveMgr_.popMessage()) {
     hudMessage_ = *msg;
     hudMessageTimer_ = 3.0f;
-    if (hudMessage_.find("BOSS") != std::string::npos)
-      SoundManager::get().play(SoundManager::SFX::BOSS_APPEAR);
   }
 
   // ── Chiến thắng ──────────────────────────────────────────
@@ -471,8 +456,7 @@ void Game::update(float dt) {
       std::cerr << "[Game] Loi luu file: " << e.what() << "\n";
     }
 
-    SoundManager::get().play(SoundManager::SFX::BOSS_APPEAR);
-    SoundManager::get().playMusic(SoundManager::BGM::MENU_BGM, false);
+    SoundManager::get().stopMusic();
     gameState_ = GameState::Victory;
     std::cout << "[Game] VICTORY! Score=" << score_.score
               << " Time=" << score_.formatTime() << "\n";
@@ -484,7 +468,6 @@ void Game::update(float dt) {
     expManager_.spawnOrb(k.pos, orbValue(k.expValue));
     score_.addKill(k.typeId);
     if (k.isBoss) {
-      SoundManager::get().play(SoundManager::SFX::BOSS_APPEAR);
       stats_.heal(2.0f);
       hudMessage_ = "Boss ha! HP +2 khoi phuc!";
       hudMessageTimer_ = 3.0f;
@@ -595,7 +578,6 @@ void Game::processEvents(const sf::Event& event) {
           monsters_.spawnDirect("flyeye", pp + spawnOff, true);  // isBoss=true
           hudMessage_ = "[F2] MINI BOSS xuat hien!";
           hudMessageTimer_ = 2.5f;
-          SoundManager::get().play(SoundManager::SFX::BOSS_APPEAR);
         }
         break;
 
@@ -606,7 +588,6 @@ void Game::processEvents(const sf::Event& event) {
           monsters_.spawnDirect("ghost", pp + sf::Vector2f{-120.f, 0.f}, true);
           hudMessage_ = "[F3] MINI BOSS Ghost xuat hien!";
           hudMessageTimer_ = 2.5f;
-          SoundManager::get().play(SoundManager::SFX::BOSS_APPEAR);
         }
         break;
 
@@ -618,7 +599,6 @@ void Game::processEvents(const sf::Event& event) {
                                 false);
           hudMessage_ = "[F4] DEMON LORD XUAT HIEN! CHUC MAY MAN!";
           hudMessageTimer_ = 3.0f;
-          SoundManager::get().play(SoundManager::SFX::BOSS_APPEAR);
         }
         break;
 
@@ -657,8 +637,7 @@ void Game::processEvents(const sf::Event& event) {
           } catch (const std::runtime_error& e) {
             std::cerr << "[Game] Loi luu file: " << e.what() << "\n";
           }
-          SoundManager::get().play(SoundManager::SFX::BOSS_APPEAR);
-          SoundManager::get().playMusic(SoundManager::BGM::MENU_BGM, false);
+          SoundManager::get().stopMusic();
           gameState_ = GameState::Victory;
           paused_ = false;
           pauseMenuOpen_ = false;
@@ -703,7 +682,6 @@ void Game::processEvents(const sf::Event& event) {
           gameState_ = GameState::Menu;
           window_.setView(window_.getDefaultView());
           SoundManager::get().stopAll();
-          SoundManager::get().playMusic(SoundManager::BGM::MENU_BGM);
           menu_.init();
         }
         break;
@@ -896,9 +874,9 @@ void Game::renderHUD() {
       box.setPosition({ix, iy});
       window_.draw(box);
 
-      // Icon texture nếu có
+      // Icon texture
       auto it = upgradeIcons_.find(slots[i].type);
-      if (it != upgradeIcons_.end() && it->second.getSize().x > 0) {
+      if (it != upgradeIcons_.end()) {
         sf::Sprite icon(it->second);
         auto ts = it->second.getSize();
         float scale =
@@ -1118,7 +1096,6 @@ void Game::buildUpgradeOptions() {
 }
 
 void Game::applyUpgrade(UpgradeType t) {
-  SoundManager::get().play(SoundManager::SFX::UPGRADE_SELECT);
   switch (t) {
     case UpgradeType::Damage:
       // Thay vì gọi stats_.upgradeDamage() (mặc định +1)
@@ -1240,7 +1217,7 @@ void Game::renderUpgradeScreen() {
 
     // Vẽ ảnh Icon kỹ năng
     auto iconIt = upgradeIcons_.find(opt.type);
-    if (iconIt != upgradeIcons_.end() && iconIt->second.getSize().x > 0) {
+    if (iconIt != upgradeIcons_.end()) {
       sf::Sprite iconSpr(iconIt->second);
       auto b2 = iconSpr.getLocalBounds();
       iconSpr.setOrigin({b2.size.x / 2.f, b2.size.y / 2.f});
@@ -1597,27 +1574,30 @@ void Game::handlePauseMenuClick(sf::Vector2f mouseUI) {
   };
 
   if (hit(cy - 80.f)) {
+    SoundManager::get().play(SoundManager::SFX::UI_CLICK);
     pauseMenuOpen_ = false;
     paused_ = false;
     settingsOpen_ = false;
     return;
   }
   if (hit(cy)) {
+    SoundManager::get().play(SoundManager::SFX::UI_CLICK);
     settingsOpen_ = !settingsOpen_;
     return;
   }
   if (hit(cy + 80.f)) {
+    SoundManager::get().play(SoundManager::SFX::UI_CLICK);
     pauseMenuOpen_ = false;
     paused_ = false;
     settingsOpen_ = false;
     gameState_ = GameState::Menu;
     window_.setView(window_.getDefaultView());
     SoundManager::get().stopAll();
-    SoundManager::get().playMusic(SoundManager::BGM::MENU_BGM);
     menu_.init();
     return;
   }
   if (hit(cy + 160.f)) {
+    SoundManager::get().play(SoundManager::SFX::UI_CLICK);
     window_.close();
     return;
   }
@@ -1629,11 +1609,13 @@ void Game::handlePauseMenuClick(sf::Vector2f mouseUI) {
     float pillX = sX + sW - pillW - 14.f;
     if (mouseUI.x >= pillX && mouseUI.x <= pillX + pillW &&
         mouseUI.y >= sY + 56.f && mouseUI.y <= sY + 56.f + pillH) {
+      SoundManager::get().play(SoundManager::SFX::UI_CLICK);
       SoundManager::get().toggleSfx();
       return;
     }
     if (mouseUI.x >= pillX && mouseUI.x <= pillX + pillW &&
         mouseUI.y >= sY + 100.f && mouseUI.y <= sY + 100.f + pillH) {
+      SoundManager::get().play(SoundManager::SFX::UI_CLICK);
       SoundManager::get().toggleMusic();
       return;
     }

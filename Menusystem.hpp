@@ -36,8 +36,6 @@ class MenuSystem {
 
     // Load ảnh icon cho các class
     for (int i = 0; i < CharacterClass::CLASS_COUNT; ++i) {
-      charIconTextures_[i].loadFromFile(CharacterClass::DEFS[i].iconPath);
-      charIconTextures_[i].setSmooth(true);
       weaponIconTextures_[i].loadFromFile(
           CharacterClass::DEFS[i].weaponIconPath);
       weaponIconTextures_[i].setSmooth(true);
@@ -111,21 +109,17 @@ class MenuSystem {
     bg.setFillColor(sf::Color(15, 12, 20));
     window_.draw(bg);
 
-    // Vẽ ảnh nền nếu load được, scale vừa màn hình
-    if (bgTexture_.getSize().x > 0) {
-      sf::Sprite bgSpr(bgTexture_);
-      auto ts = bgTexture_.getSize();
-      bgSpr.setScale({winW_ / ts.x, winH_ / ts.y});
-      // Tối ảnh nền ở màn CharSelect để card dễ nhìn hơn
-      uint8_t alpha = (screen_ == MenuScreen::MainMenu) ? 255 : 160;
-      bgSpr.setColor(sf::Color(255, 255, 255, alpha));
-      window_.draw(bgSpr);
-      // Overlay tối nhẹ cho CharSelect
-      if (screen_ != MenuScreen::MainMenu) {
-        sf::RectangleShape dim({winW_, winH_});
-        dim.setFillColor(sf::Color(0, 0, 0, 100));
-        window_.draw(dim);
-      }
+    sf::Sprite bgSpr(bgTexture_);
+    auto ts = bgTexture_.getSize();
+    bgSpr.setScale({winW_ / ts.x, winH_ / ts.y});
+    uint8_t alpha = (screen_ == MenuScreen::MainMenu) ? 255 : 160;
+    bgSpr.setColor(sf::Color(255, 255, 255, alpha));
+    window_.draw(bgSpr);
+
+    if (screen_ != MenuScreen::MainMenu) {
+      sf::RectangleShape dim({winW_, winH_});
+      dim.setFillColor(sf::Color(0, 0, 0, 100));
+      window_.draw(dim);
     }
 
     drawParticles();
@@ -401,45 +395,23 @@ class MenuSystem {
     const float spriteAreaH = 110.f;  // chiều cao vùng dành cho sprite
     const float spriteY = y + 10.f;
 
-    if (charIdx >= 0 && charIdx < CharacterClass::CLASS_COUNT &&
-        charSpriteTextures_[charIdx].getSize().x > 0) {
-      auto& tex = charSpriteTextures_[charIdx];
-      auto ts = tex.getSize();
+    auto& tex = charSpriteTextures_[charIdx];
+    auto ts = tex.getSize();
 
-      // Lấy frame đầu tiên của spritesheet
-      // Giả sử sheet ngang: mỗi frame vuông (ts.y x ts.y)
-      unsigned frameW = ts.x / 4;
-      sf::IntRect frameRect({0, 0},
-                            {static_cast<int>(frameW), static_cast<int>(ts.y)});
+    unsigned frameW = ts.x / 4;
+    sf::IntRect frameRect({0, 0},
+                          {static_cast<int>(frameW), static_cast<int>(ts.y)});
 
-      sf::Sprite spr(tex, frameRect);
+    sf::Sprite spr(tex, frameRect);
+    float scale = std::min((w - 20.f) / static_cast<float>(frameW),
+                           spriteAreaH / static_cast<float>(ts.y));
+    if (scale > 2.f) scale = 2.f;
+    if (scale < 0.5f) scale = 0.5f;
 
-      // Scale vừa vùng sprite, giữ tỉ lệ
-      float scale = std::min((w - 20.f) / static_cast<float>(frameW),
-                             spriteAreaH / static_cast<float>(ts.y));
-      // Giữ nguyên tỉ lệ thực, không floor để tránh nhảy bậc
-      if (scale > 2.f) scale = 2.f;  // giới hạn tối đa x2
-      if (scale < 0.5f) scale = 0.5f;
-
-      spr.setScale({scale, scale});
-      float sw = frameW * scale, sh = ts.y * scale;
-      spr.setPosition({cxc - sw * 0.5f, spriteY + (spriteAreaH - sh) * 0.5f});
-      window_.draw(spr);
-
-    } else {
-      // Fallback: vòng tròn + icon vũ khí
-      sf::CircleShape iconBg(32.f);
-      iconBg.setFillColor(
-          sf::Color(ch.color.r / 5, ch.color.g / 5, ch.color.b / 5, 200));
-      iconBg.setOutlineColor(
-          sf::Color(ch.color.r, ch.color.g, ch.color.b, 180));
-      iconBg.setOutlineThickness(2.f);
-      iconBg.setOrigin({32.f, 32.f});
-      iconBg.setPosition({cxc, spriteY + spriteAreaH * 0.5f});
-      window_.draw(iconBg);
-      drawText(ch.icon, 30, {cxc, spriteY + spriteAreaH * 0.5f - 15.f},
-               ch.color, true);
-    }
+    spr.setScale({scale, scale});
+    float sw = frameW * scale, sh = ts.y * scale;
+    spr.setPosition({cxc - sw * 0.5f, spriteY + (spriteAreaH - sh) * 0.5f});
+    window_.draw(spr);
 
     // ── Đường kẻ phân cách ───────────────────────────────────
     float divY = spriteY + spriteAreaH + 6.f;
@@ -454,15 +426,12 @@ class MenuSystem {
 
     // Icon vũ khí nhỏ + tên vũ khí
     float weapY = nameY + 24.f;
-    if (charIdx >= 0 && charIdx < CharacterClass::CLASS_COUNT &&
-        weaponIconTextures_[charIdx].getSize().x > 0) {
-      sf::Sprite wSpr(weaponIconTextures_[charIdx]);
-      auto wb = wSpr.getLocalBounds();
-      float ws = 18.f / std::max(wb.size.x, wb.size.y);
-      wSpr.setScale({ws, ws});
-      wSpr.setPosition({cxc - 36.f, weapY - 9.f});
-      window_.draw(wSpr);
-    }
+    sf::Sprite wSpr(weaponIconTextures_[charIdx]);
+    auto wb = wSpr.getLocalBounds();
+    float ws = 18.f / std::max(wb.size.x, wb.size.y);
+    wSpr.setScale({ws, ws});
+    wSpr.setPosition({cxc - 36.f, weapY - 9.f});
+    window_.draw(wSpr);
     drawText(ch.weaponName, 11, {cxc + 4.f, weapY}, ch.color, true);
 
     // ── Mô tả ────────────────────────────────────────────────
@@ -673,10 +642,13 @@ class MenuSystem {
 
   void handleClick() {
     float mx = mousePos_.x, my = mousePos_.y;
+    bool clickedSomething = false;
+
     if (screen_ == MenuScreen::MainMenu) {
       for (int i = 0; i < (int)mainMenuRects_.size(); ++i) {
         auto& r = mainMenuRects_[i];
         if (!inRect(mx, my, r[0], r[1], r[2], r[3])) continue;
+        clickedSomething = true;
         if (i == 0) {
           screen_ = MenuScreen::CharSelect;
           hovered_ = -1;
@@ -691,36 +663,49 @@ class MenuSystem {
       }
     } else if (screen_ == MenuScreen::Settings) {
       if (inRect(mx, my, settingsSfxRect_[0], settingsSfxRect_[1],
-                 settingsSfxRect_[2], settingsSfxRect_[3]))
+                 settingsSfxRect_[2], settingsSfxRect_[3])) {
         SoundManager::get().toggleSfx();
-      else if (inRect(mx, my, settingsMusicRect_[0], settingsMusicRect_[1],
-                      settingsMusicRect_[2], settingsMusicRect_[3]))
+        clickedSomething = true;
+      } else if (inRect(mx, my, settingsMusicRect_[0], settingsMusicRect_[1],
+                        settingsMusicRect_[2], settingsMusicRect_[3])) {
         SoundManager::get().toggleMusic();
-      else if (inRect(mx, my, settingsBackRect_[0], settingsBackRect_[1],
-                      settingsBackRect_[2], settingsBackRect_[3])) {
+        clickedSomething = true;
+      } else if (inRect(mx, my, settingsBackRect_[0], settingsBackRect_[1],
+                        settingsBackRect_[2], settingsBackRect_[3])) {
         screen_ = MenuScreen::MainMenu;
         hovered_ = -1;
+        clickedSomething = true;
       }
     } else {
       for (int i = 0; i < (int)charCardRects_.size(); ++i) {
         auto& r = charCardRects_[i];
         if (inRect(mx, my, r[0], r[1], r[2], r[3])) {
           selectedChar_ = i;
+          clickedSomething = true;
           break;
         }
       }
       if (inRect(mx, my, diffEasyRect_[0], diffEasyRect_[1], diffEasyRect_[2],
-                 diffEasyRect_[3]))
+                 diffEasyRect_[3])) {
         selectedDiff_ = Difficulty::Easy;
+        clickedSomething = true;
+      }
       if (inRect(mx, my, diffHardRect_[0], diffHardRect_[1], diffHardRect_[2],
-                 diffHardRect_[3]))
+                 diffHardRect_[3])) {
         selectedDiff_ = Difficulty::Hard;
+        clickedSomething = true;
+      }
       auto& sb = startBtnRect_;
       if (inRect(mx, my, sb[0], sb[1], sb[2], sb[3])) {
         result_.charIndex = selectedChar_;
         result_.difficulty = selectedDiff_;
         screen_ = MenuScreen::FadeOut;
+        clickedSomething = true;
       }
+    }
+
+    if (clickedSomething) {
+      SoundManager::get().play(SoundManager::SFX::UI_CLICK);
     }
   }
 
@@ -748,7 +733,6 @@ class MenuSystem {
   mutable std::array<float, 4> settingsSfxRect_ = {};
   mutable std::array<float, 4> settingsMusicRect_ = {};
   std::array<float, 4> settingsBackRect_ = {};
-  std::array<sf::Texture, CharacterClass::CLASS_COUNT> charIconTextures_;
   std::array<sf::Texture, CharacterClass::CLASS_COUNT> weaponIconTextures_;
   std::array<sf::Texture, CharacterClass::CLASS_COUNT> charSpriteTextures_;
   sf::Texture bgTexture_;

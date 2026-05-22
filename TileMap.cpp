@@ -12,23 +12,6 @@ static std::string findAsset(const std::string& filename) {
   if (base.size() > 4 && base.substr(base.size() - 4) == ".tsx")
     base = base.substr(0, base.size() - 4) + ".png";
 
-  const std::vector<std::string> candidates = {
-      base,
-      "assets/" + base,
-      "assets/tilesets/" + base,
-      "assets/textures/" + base,
-      "resources/" + base,
-      "../assets/" + base,
-      "../assets/tilesets/" + base,
-  };
-  for (const auto& p : candidates)
-    if (std::filesystem::exists(p)) return p;
-
-  std::cerr << "[TileMap] ERROR: Cannot find '" << base << "'\n";
-  std::cerr << "[TileMap]   Working dir: "
-            << std::filesystem::current_path().string() << "\n";
-  for (const auto& p : candidates)
-    std::cerr << "[TileMap]     tried: " << p << "\n";
   return base;
 }
 
