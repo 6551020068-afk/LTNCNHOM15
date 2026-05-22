@@ -236,31 +236,15 @@ class HolyBibleSkill {
       const float s = bookScale_;  // shorthand
       // Dùng texture evolved nếu có, fallback về tex_ thường
       const bool useEvoTex = evolved_ && texEvoLoaded_;
-      const bool useNormTex = texLoaded_;
-      const bool useFallback = !(useEvoTex || useNormTex);
 
-      if (!useFallback) {
-        sf::Sprite spr(useEvoTex ? texEvo_ : tex_);
-        spr.setScale({2.f * s, 2.f * s});
-        spr.setOrigin({8.f, 8.f});
-        spr.setPosition(pos);
-        spr.setRotation(sf::degrees(bookRot));
-        // Nếu evolved nhưng không có texture riêng → tô màu tím
-        if (evolved_ && !texEvoLoaded_) spr.setColor(sf::Color(220, 160, 255));
-        target.draw(spr);
-      } else {
-        // Fallback shape
-        sf::RectangleShape body({14.f * s, 18.f * s});
-        body.setOrigin({7.f * s, 9.f * s});
-        body.setFillColor(evolved_ ? sf::Color(100, 20, 180, 230)
-                                   : sf::Color(30, 80, 200, 230));
-        body.setOutlineColor(evolved_ ? sf::Color(220, 160, 255)
-                                      : sf::Color(180, 220, 255));
-        body.setOutlineThickness(1.5f);
-        body.setRotation(sf::degrees(bookRot));
-        body.setPosition(pos);
-        target.draw(body);
-      }
+      sf::Sprite spr(useEvoTex ? texEvo_ : tex_);
+      spr.setScale({2.f * s, 2.f * s});
+      spr.setOrigin({8.f, 8.f});
+      spr.setPosition(pos);
+      spr.setRotation(sf::degrees(bookRot));
+      // Nếu evolved nhưng không có texture riêng → tô màu tím
+      if (evolved_ && !texEvoLoaded_) spr.setColor(sf::Color(220, 160, 255));
+      target.draw(spr);
     }
 
     // Cooldown arc — hiển thị trên sách đầu tiên

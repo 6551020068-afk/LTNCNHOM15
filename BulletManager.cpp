@@ -3,6 +3,7 @@
 #include <algorithm>
 
 #include "MonsterManager.hpp"  // KillInfo
+#include "SoundManager.hpp"
 
 void BulletManager::spawnFromShots(const std::vector<ShotData>& shots) {
   for (const auto& shot : shots)
@@ -26,6 +27,7 @@ std::vector<KillInfo> BulletManager::update(float dt,
       if (!m->isAlive()) continue;
       if (b.hits(m->getPosition(), 18.f)) {
         m->takeHit(damagePerBullet * b.getDamage());
+        SoundManager::get().playVaried(SoundManager::SFX::HIT_MONSTER);
         b.kill();
         if (!m->isAlive()) {
           ++killCount_;

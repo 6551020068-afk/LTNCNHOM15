@@ -1,12 +1,15 @@
 #pragma once
 // ════════════════════════════════════════════════════════════
 //  SoundManager.hpp  —  Quản lý toàn bộ âm thanh game
+//  Fixed for SFML 3: sf::Sound has no default constructor
 // ════════════════════════════════════════════════════════════
 
 #include <SFML/Audio.hpp>
 #include <array>
+#include <cstdint>
 #include <iostream>
 #include <memory>
+#include <optional>  // ← thêm
 #include <string>
 #include <vector>
 
@@ -16,20 +19,15 @@ class SoundManager {
   enum class SFX {
     SHOOT = 0,
     HIT_MONSTER,
-    MONSTER_DIE,
     PLAYER_HIT,
-    PLAYER_DIE,
     LEVEL_UP,
     PICKUP_EXP,
-    LIGHTNING,
-    GARLIC_TICK,
-    BOSS_APPEAR,
-    UPGRADE_SELECT,
+    UI_CLICK,
     COUNT
   };
 
   // ── Enum BGM ─────────────────────────────────────────────
-  enum class BGM { NONE, MENU_BGM, GAME_BGM, BOSS_BGM, GAMEOVER_BGM };
+  enum class BGM { NONE, GAME_BGM, BOSS_BGM, GAMEOVER_BGM };
 
   // ── Singleton ─────────────────────────────────────────────
   static SoundManager& get() {
@@ -42,12 +40,8 @@ class SoundManager {
     bool allOk = true;
 
     static const char* SFX_FILES[static_cast<int>(SFX::COUNT)] = {
-        "audio/shoot.wav",          "audio/hit_monster.wav",
-        "audio/monster_die.wav",    "audio/player_hit.wav",
-        "audio/player_die.wav",     "audio/level_up.wav",
-        "audio/pickup_exp.wav",     "audio/lightning.wav",
-        "audio/garlic_tick.wav",    "audio/boss_appear.wav",
-        "audio/upgrade_select.wav",
+        "audio/shoot.wav",    "audio/hit_monster.wav", "audio/player_hit.wav",
+        "audio/level_up.wav", "audio/pickup_exp.wav",  "audio/click.wav",
     };
 
     for (int i = 0; i < static_cast<int>(SFX::COUNT); ++i) {
@@ -60,10 +54,58 @@ class SoundManager {
       }
     }
 
-    // Khởi tạo sound pool SAU khi buffers_ đã load xong
+    // Khuếch đại âm lượng của TOÀN BỘ hiệu ứng âm thanh (SFX)
+    for (int idx = 0; idx < static_cast<int>(SFX::COUNT); ++idx) {
+      if (bufferOk_[idx]) {
+        const std::int16_t* samples = buffers_[idx].getSamples();
+        std::size_t count = buffers_[idx].getSampleCount();
+        unsigned int channelCount = buffers_[idx].getChannelCount();
+        unsigned int sampleRate = buffers_[idx].getSampleRate();
+
+        std::vector<std::int16_t> newSamples(count);
+        for (std::size_t i = 0; i < count; ++i) {
+          int amplified = static_cast<int>(samples[i]) * 3;
+          if (amplified > 32767) amplified = 32767;
+          if (amplified < -32768) amplified = -32768;
+          newSamples[i] = static_cast<std::int16_t>(amplified);
+        }
+
+        std::vector<sf::SoundChannel> channelMap;
+        if (channelCount == 1) {
+          channelMap = {sf::SoundChannel::Mono};
+        } else {
+          channelMap = {sf::SoundChannel::FrontLeft,
+                        sf::SoundChannel::FrontRight};
+        }
+        // FIX: handle [[nodiscard]] warning bằng cách gán vào biến
+        [[maybe_unused]] bool ok = buffers_[idx].loadFromSamples(
+            newSamples.data(), count, channelCount, sampleRate, channelMap);
+      }
+    }
+
+    // ── FIX CHÍNH: SFML 3 — sf::Sound không có default constructor.
+    // Dùng std::optional<sf::Sound> thay vì sf::Sound trực tiếp.
+    // Khởi tạo pool SAU khi buffers_ đã load xong.
     soundPool_.clear();
     soundPool_.reserve(MAX_SOUNDS);
-    for (int i = 0; i < MAX_SOUNDS; ++i) soundPool_.emplace_back(buffers_[0]);
+    // Tìm buffer đầu tiên hợp lệ để khởi tạo các Sound trong pool
+    int firstOk = -1;
+    for (int i = 0; i < static_cast<int>(SFX::COUNT); ++i) {
+      if (bufferOk_[i]) {
+        firstOk = i;
+        break;
+      }
+    }
+    for (int i = 0; i < MAX_SOUNDS; ++i) {
+      if (firstOk >= 0) {
+        // emplace sf::Sound với một buffer hợp lệ, sau đó stop ngay
+        soundPool_.emplace_back(std::in_place, buffers_[firstOk]);
+        soundPool_.back()->stop();
+      } else {
+        // Không có buffer nào load được — để optional rỗng
+        soundPool_.emplace_back(std::nullopt);
+      }
+    }
 
     music_ = std::make_unique<sf::Music>();
     initialized_ = true;
@@ -90,10 +132,6 @@ class SoundManager {
   void playVaried(SFX sfx) { play(sfx, 1.0f); }
 
   // ── tick(): GỌI MỖI FRAME từ Game::update() ──────────────
-  // Phát hiện non-loop music đã kết thúc tự nhiên để reset musicOpened_.
-  // Đây là fix cốt lõi: GAMEOVER_BGM phát với loop=false, khi hết bài
-  // SFML đóng internal reader. Nếu không tick() để reset flag, lần sau
-  // stopAll() gọi music_->stop() trên reader đã null → crash m_reader assert.
   void tick() {
     if (musicOpened_) {
       if (music_->getStatus() == sf::Music::Status::Stopped) {
@@ -105,12 +143,8 @@ class SoundManager {
 
   // ── BGM ──────────────────────────────────────────────────
   void playMusic(BGM bgm, bool loop = true) {
-    // Chỉ skip nếu đúng track VÀ stream đang thực sự mở.
-    // KHÔNG chỉ check currentBgm_ == bgm vì sau stopAll() musicOpened_=false
-    // nhưng currentBgm_ có thể vẫn là track cũ → skip sai → stream không open.
     if (currentBgm_ == bgm && musicOpened_) return;
 
-    // Dừng stream cũ TRƯỚC khi gán currentBgm_ mới
     if (musicOpened_) {
       music_->stop();
       musicOpened_ = false;
@@ -120,21 +154,16 @@ class SoundManager {
     if (bgm == BGM::NONE) return;
 
     const char* file = bgmFile(bgm);
-    // SFML 3: sau một openFromFile thất bại, m_reader = null.
-    // Lần gọi openFromFile tiếp theo SFML gọi close() → deref m_reader null →
-    // crash. Giải pháp dứt điểm: reset unique_ptr để destroy sf::Music cũ và
-    // tạo mới.
     music_ = std::make_unique<sf::Music>();
     if (!music_->openFromFile(file)) {
       std::cerr << "[SoundManager] Missing BGM: " << file << "\n";
-      music_ =
-          std::make_unique<sf::Music>();  // reset lại để tránh broken state
+      music_ = std::make_unique<sf::Music>();
       currentBgm_ = BGM::NONE;
       return;
     }
     musicOpened_ = true;
     music_->setLooping(loop);
-    music_->setVolume(bgm == BGM::GAMEOVER_BGM ? 20.f : musicVolume_);
+    music_->setVolume(musicVolume_);
     music_->play();
   }
 
@@ -160,7 +189,9 @@ class SoundManager {
       musicOpened_ = false;
     }
     currentBgm_ = BGM::NONE;
-    for (auto& s : soundPool_) s.stop();
+    for (auto& s : soundPool_) {
+      if (s.has_value()) s->stop();
+    }
     std::cout << "[SoundManager] Stopped all sounds and music.\n";
   }
 
@@ -197,8 +228,11 @@ class SoundManager {
 
   void toggleSfx() {
     sfxEnabled_ = !sfxEnabled_;
-    if (!sfxEnabled_)
-      for (auto& s : soundPool_) s.stop();
+    if (!sfxEnabled_) {
+      for (auto& s : soundPool_) {
+        if (s.has_value()) s->stop();
+      }
+    }
   }
 
   // ── Music enable/disable ─────────────────────────────────
@@ -224,26 +258,36 @@ class SoundManager {
 
   std::array<sf::SoundBuffer, static_cast<int>(SFX::COUNT)> buffers_;
   std::array<bool, static_cast<int>(SFX::COUNT)> bufferOk_ = {};
-  std::vector<sf::Sound> soundPool_;
+
+  // ── FIX: dùng optional vì sf::Sound không có default constructor trong SFML
+  // 3
+  std::vector<std::optional<sf::Sound>> soundPool_;
 
   std::unique_ptr<sf::Music> music_;
   BGM currentBgm_ = BGM::NONE;
   bool musicOpened_ = false;
 
   float sfxVolume_ = 100.f;
-  float musicVolume_ = 30.f;
+  float musicVolume_ = 100.f;
   float savedSfxVol_ = 100.f;
-  float savedMusicVol_ = 30.f;
+  float savedMusicVol_ = 100.f;
   bool muted_ = false;
   bool initialized_ = false;
   bool sfxEnabled_ = true;
   bool musicEnabled_ = true;
 
   sf::Sound* findFreeSlot() {
-    for (auto& s : soundPool_)
-      if (s.getStatus() == sf::Sound::Status::Stopped) return &s;
-    soundPool_[0].stop();
-    return &soundPool_[0];
+    for (auto& s : soundPool_) {
+      if (s.has_value() && s->getStatus() == sf::Sound::Status::Stopped) {
+        return &s.value();
+      }
+    }
+    // Tất cả slot đang bận → cướp slot đầu tiên
+    if (soundPool_[0].has_value()) {
+      soundPool_[0]->stop();
+      return &soundPool_[0].value();
+    }
+    return nullptr;
   }
 
   static float pitchVariance() {
@@ -258,8 +302,6 @@ class SoundManager {
 
   static const char* bgmFile(BGM bgm) {
     switch (bgm) {
-      case BGM::MENU_BGM:
-        return "audio/bgm_menu.ogg";
       case BGM::GAME_BGM:
         return "audio/bgm_game.ogg";
       case BGM::BOSS_BGM:

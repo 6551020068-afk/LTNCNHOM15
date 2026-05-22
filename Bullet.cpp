@@ -10,25 +10,10 @@ bool Bullet::texLoaded_ = false;
 bool Bullet::loadTextures() {
   if (texLoaded_) return true;
 
-  // Thử các đường dẫn theo thứ tự
-  const char* paths[] = {
-      "hinh anh/Sprite-Knife.png",   // forward slash (cross-platform)
-      "hinh anh\\Sprite-Knife.png",  // backslash (Windows)
-      "Sprite-Knife.png",            // thư mục gốc
-  };
-
-  for (const char* p : paths) {
-    if (texBullet_.loadFromFile(p)) {
-      texLoaded_ = true;  // ✅ Chỉ set TRUE sau khi load thành công
-      std::cout << "[Bullet] Loaded texture: " << p << "\n";
-      return true;
-    }
+  if (texBullet_.loadFromFile("hinh anh/Sprite-Knife.png")) {
+    texLoaded_ = true;
+    return true;
   }
-
-  std::cerr << "[Bullet] ERROR: Cannot find Sprite-Knife.png!\n";
-  std::cerr << "[Bullet] Working dir: ";
-  // In thư mục hiện tại để debug
-  system("cd");  // Windows
   return false;
 }
 

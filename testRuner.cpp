@@ -8,9 +8,12 @@
 //  để kiểm tra. Kết quả in ra console.
 // ════════════════════════════════════════════════════════════
 #include <cmath>
+#include <fstream>
+#include <functional>
 #include <iostream>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 // ── Stub SFML để test không cần link SFML ────────────────────
 namespace sf {
@@ -29,54 +32,59 @@ struct Vector2f {
 // ════════════════════════════════════════════════════════════
 static int g_pass = 0, g_fail = 0;
 
-#define ASSERT_EQ(a, b)                                                        \
-  do {                                                                         \
-    if ((a) == (b)) {                                                          \
-      ++g_pass;                                                                \
-    } else {                                                                   \
-      ++g_fail;                                                                \
-      std::cerr << "  [FAIL] " << __FILE__ << ":" << __LINE__ << "  expected " \
-                << (b) << "  got " << (a) << "\n";                             \
-    }                                                                          \
+#define ASSERT_EQ(a, b)                                                \
+  do {                                                                 \
+    if ((a) == (b)) {                                                  \
+      ++g_pass;                                                        \
+    } else {                                                           \
+      ++g_fail;                                                        \
+      std::cerr << "  [THẤT BẠI] " << __FILE__ << ":" << __LINE__      \
+                << "  mong đợi " << (b) << "  nhưng nhận được " << (a) \
+                << "\n";                                               \
+    }                                                                  \
   } while (0)
 
-#define ASSERT_TRUE(expr)                                     \
-  do {                                                        \
-    if (expr) {                                               \
-      ++g_pass;                                               \
-    } else {                                                  \
-      ++g_fail;                                               \
-      std::cerr << "  [FAIL] " << __FILE__ << ":" << __LINE__ \
-                << "  \"" #expr "\" is false\n";              \
-    }                                                         \
+#define ASSERT_TRUE(expr)                                         \
+  do {                                                            \
+    if (expr) {                                                   \
+      ++g_pass;                                                   \
+    } else {                                                      \
+      ++g_fail;                                                   \
+      std::cerr << "  [THẤT BẠI] " << __FILE__ << ":" << __LINE__ \
+                << "  điều kiện \"" #expr "\" bị sai\n";          \
+    }                                                             \
   } while (0)
 
-#define ASSERT_THROWS(expr, ExType)                           \
-  do {                                                        \
-    bool caught = false;                                      \
-    try {                                                     \
-      expr;                                                   \
-    } catch (const ExType&) {                                 \
-      caught = true;                                          \
-    } catch (...) {                                           \
-    }                                                         \
-    if (caught) {                                             \
-      ++g_pass;                                               \
-    } else {                                                  \
-      ++g_fail;                                               \
-      std::cerr << "  [FAIL] " << __FILE__ << ":" << __LINE__ \
-                << "  expected exception " #ExType "\n";      \
-    }                                                         \
+#define ASSERT_THROWS(expr, ExType)                                           \
+  do {                                                                        \
+    bool caught = false;                                                      \
+    try {                                                                     \
+      expr;                                                                   \
+    } catch (const ExType&) {                                                 \
+      caught = true;                                                          \
+    } catch (...) {                                                           \
+    }                                                                         \
+    if (caught) {                                                             \
+      ++g_pass;                                                               \
+    } else {                                                                  \
+      ++g_fail;                                                               \
+      std::cerr << "  [THẤT BẠI] " << __FILE__ << ":" << __LINE__             \
+                << "  mong đợi ném ra ngoại lệ " #ExType " nhưng không có\n"; \
+    }                                                                         \
   } while (0)
 
-#define TEST(name)                        \
-  static void name();                     \
-  struct _Reg_##name {                    \
-    _Reg_##name() {                       \
-      std::cout << "[ RUN ] " #name "\n"; \
-      name();                             \
-    }                                     \
-  } _reg_##name;                          \
+// Dùng vector tĩnh để đăng ký test, giúp các test chạy theo đúng thứ tự trong
+// main
+inline std::vector<std::pair<std::string, std::function<void()>>>& getTests() {
+  static std::vector<std::pair<std::string, std::function<void()>>> tests;
+  return tests;
+}
+
+#define TEST(name)                                          \
+  static void name();                                       \
+  struct _Reg_##name {                                      \
+    _Reg_##name() { getTests().push_back({#name, &name}); } \
+  } _reg_##name;                                            \
   static void name()
 
 // ════════════════════════════════════════════════════════════
@@ -269,13 +277,17 @@ TEST(difficulty_hard_spawn_faster_than_easy) {
 // ════════════════════════════════════════════════════════════
 int main() {
   std::cout << "\n========================================\n"
-            << "  Unit Tests\n"
+            << "  KẾT QUẢ KIỂM THỬ (UNIT TESTS)\n"
             << "========================================\n\n";
 
-  // Tests tự chạy qua _Reg_ constructors ở trên (static init)
+  // Chạy lần lượt các tests đã được đăng ký
+  for (const auto& test : getTests()) {
+    std::cout << "[ CHẠY ] " << test.first << "\n";
+    test.second();
+  }
 
   std::cout << "\n========================================\n";
-  std::cout << "  PASS: " << g_pass << "   FAIL: " << g_fail << "\n";
+  std::cout << "  THÀNH CÔNG: " << g_pass << "   THẤT BẠI: " << g_fail << "\n";
   std::cout << "========================================\n\n";
 
   return (g_fail > 0) ? 1 : 0;
