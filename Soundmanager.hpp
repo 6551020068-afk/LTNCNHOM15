@@ -23,11 +23,12 @@ class SoundManager {
     LEVEL_UP,
     PICKUP_EXP,
     UI_CLICK,
+    GAMEOVER,
     COUNT
   };
 
   // ── Enum BGM ─────────────────────────────────────────────
-  enum class BGM { NONE, GAME_BGM, BOSS_BGM, GAMEOVER_BGM };
+  enum class BGM { NONE, GAME_BGM, BOSS_BGM };
 
   // ── Singleton ─────────────────────────────────────────────
   static SoundManager& get() {
@@ -40,8 +41,10 @@ class SoundManager {
     bool allOk = true;
 
     static const char* SFX_FILES[static_cast<int>(SFX::COUNT)] = {
-        "audio/shoot.wav",    "audio/hit_monster.wav", "audio/player_hit.wav",
-        "audio/level_up.wav", "audio/pickup_exp.wav",  "audio/click.wav",
+        "audio/shoot.wav",        "audio/hit_monster.wav",
+        "audio/player_hit.wav",   "audio/level_up.wav",
+        "audio/pickup_exp.wav",   "audio/click.wav",
+        "audio/bgm_gameover.mp3",
     };
 
     for (int i = 0; i < static_cast<int>(SFX::COUNT); ++i) {
@@ -56,6 +59,9 @@ class SoundManager {
 
     // Khuếch đại âm lượng của TOÀN BỘ hiệu ứng âm thanh (SFX)
     for (int idx = 0; idx < static_cast<int>(SFX::COUNT); ++idx) {
+      // Bỏ qua nhạc Game Over để không bị rè do khuếch đại âm lượng
+      if (idx == static_cast<int>(SFX::GAMEOVER)) continue;
+
       if (bufferOk_[idx]) {
         const std::int16_t* samples = buffers_[idx].getSamples();
         std::size_t count = buffers_[idx].getSampleCount();
@@ -116,7 +122,7 @@ class SoundManager {
 
   // ── Phát SFX ─────────────────────────────────────────────
   void play(SFX sfx, float pitch = 1.0f) {
-    if (!initialized_ || !sfxEnabled_) return;
+    if (!initialized_ || !sfxEnabled_ || muted_) return;
     int idx = static_cast<int>(sfx);
     if (!bufferOk_[idx]) return;
 
@@ -125,7 +131,14 @@ class SoundManager {
 
     slot->setBuffer(buffers_[idx]);
     slot->setVolume(sfxVolume_);
-    slot->setPitch(pitch + pitchVariance());
+
+    // Nhạc Game Over sẽ giữ nguyên Pitch ban đầu, không thay đổi ngẫu nhiên
+    if (sfx == SFX::GAMEOVER) {
+      slot->setPitch(pitch);
+    } else {
+      slot->setPitch(pitch + pitchVariance());
+    }
+
     slot->play();
   }
 
@@ -134,7 +147,11 @@ class SoundManager {
   // ── tick(): GỌI MỖI FRAME từ Game::update() ──────────────
   void tick() {
     if (musicOpened_) {
-      if (music_->getStatus() == sf::Music::Status::Stopped) {
+      // Chỉ tự động đóng nhạc nếu nó ĐANG được bật (đáng ra phải đang phát)
+      // nhưng status lại là Stopped (tức là đã phát hết bài).
+      // Tránh reset nhầm khi ta chủ động chưa play() (vì đang tắt nhạc).
+      if (music_->getStatus() == sf::Music::Status::Stopped && musicEnabled_ &&
+          !muted_) {
         musicOpened_ = false;
         currentBgm_ = BGM::NONE;
       }
@@ -164,7 +181,9 @@ class SoundManager {
     musicOpened_ = true;
     music_->setLooping(loop);
     music_->setVolume(musicVolume_);
-    music_->play();
+    if (musicEnabled_ && !muted_) {
+      music_->play();
+    }
   }
 
   void stopMusic() {
@@ -180,7 +199,7 @@ class SoundManager {
   }
 
   void resumeMusic() {
-    if (musicOpened_) music_->play();
+    if (musicOpened_ && musicEnabled_ && !muted_) music_->play();
   }
 
   void stopAll() {
@@ -211,6 +230,17 @@ class SoundManager {
     muted_ = muted;
     setSfxVolume(muted ? 0.f : savedSfxVol_);
     setMusicVolume(muted ? 0.f : savedMusicVol_);
+
+    if (muted_) {
+      for (auto& s : soundPool_) {
+        if (s.has_value()) s->stop();
+      }
+      if (musicOpened_) music_->pause();
+    } else {
+      if (musicOpened_ && musicEnabled_ && currentBgm_ != BGM::NONE) {
+        music_->play();
+      }
+    }
   }
 
   void toggleMute() {
@@ -243,7 +273,7 @@ class SoundManager {
     if (!musicOpened_) return;
     if (musicEnabled_) {
       music_->setVolume(musicVolume_);
-      if (currentBgm_ != BGM::NONE) music_->play();
+      if (currentBgm_ != BGM::NONE && !muted_) music_->play();
     } else {
       music_->pause();
     }
@@ -306,8 +336,6 @@ class SoundManager {
         return "audio/bgm_game.ogg";
       case BGM::BOSS_BGM:
         return "audio/bgm_boss.ogg";
-      case BGM::GAMEOVER_BGM:
-        return "audio/bgm_gameover.mp3";
       default:
         return "";
     }

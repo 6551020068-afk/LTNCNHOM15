@@ -83,7 +83,7 @@ class LightningRingSkill : public ISkill {
       z.damage = baseDamage * currentDamage_;
       result.push_back(z);
       LightningEffect fx;
-      fx.pos = z.pos;
+      fx.pos = monsters[idx].first;
       fx.rings = evolved_ ? 5 : 3;
       effects_.push_back(fx);
     }
@@ -96,7 +96,7 @@ class LightningRingSkill : public ISkill {
       z.damage = baseDamage * currentDamage_ / 2;
       result.push_back(z);
       LightningEffect fx;
-      fx.pos = z.pos;
+      fx.pos = monsters[chainIdx].first;
       effects_.push_back(fx);
     }
     return result;

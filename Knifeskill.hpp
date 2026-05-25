@@ -40,16 +40,11 @@ class KnifeSkill : public ISkill {
     applyLevelStats();
   }
 
-  // ── Game gọi mỗi frame để cập nhật hướng di chuyển ──────
-  // movingDir: lấy từ player.getFacingVector() hoặc input vector
-  // Nếu player đứng yên (0,0): giữ nguyên hướng cũ
   void setFacingDir(sf::Vector2f movingDir) {
     if (movingDir.x != 0.f || movingDir.y != 0.f)
       lastDir_ = knifeNormalize(movingDir);
-    // Nếu đứng yên: lastDir_ giữ nguyên hướng lần cuối di chuyển
   }
 
-  // ── tryFire ──────────────────────────────────────────────
   std::vector<ShotData> tryFire(sf::Vector2f origin, sf::Vector2f facing,
                                 float dt) override {
     tickCooldown(dt);

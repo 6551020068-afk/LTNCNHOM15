@@ -26,7 +26,6 @@ struct ShotData {
   float lifetime = 3.f;
   int pierce = 0;  // (Tuỳ chọn) Số lần xuyên thấu
 };
-
 // ── Meta info để HUD hiển thị ───────────────────────────────
 struct SkillInfo {
   std::string id;
@@ -46,11 +45,7 @@ class ISkill {
 
   virtual ~ISkill() = default;
 
-  // ── Core interface ───────────────────────────────────────
   // Gọi mỗi frame. Trả về ShotData nếu đến lượt bắn, rỗng nếu chưa.
-  // origin    : vị trí player
-  // facing    : hướng nhân vật đang nhìn (unit vector)
-  // dt        : delta time
   virtual std::vector<ShotData> tryFire(sf::Vector2f origin,
                                         sf::Vector2f facing, float dt) = 0;
 
