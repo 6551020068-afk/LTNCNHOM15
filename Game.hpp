@@ -1,6 +1,7 @@
 #pragma once
 #include <SFML/Graphics.hpp>
 #include <array>
+#include <memory>
 #include <string>
 #include <unordered_map>
 
@@ -16,13 +17,11 @@
 #include "PlayerStats.hpp"
 #include "SaveSystem.hpp"
 #include "ScoreSystem.hpp"
-#include "SkillManager.hpp"  
+#include "SkillManager.hpp"
 #include "SoundManager.hpp"
 #include "TileMap.hpp"
 #include "WaveManager.hpp"
 #include "dokho.hpp"
-
-
 
 enum class UpgradeType {
   Damage,
@@ -31,7 +30,7 @@ enum class UpgradeType {
   Knife,
   LightningRing,
   Garlic,
-  HolyBible  
+  HolyBible
 };
 
 struct UpgradeOption {
@@ -46,7 +45,7 @@ enum class GameState { Menu, Playing, GameOver, Victory };
 class Game {
  public:
   Game();
-  ~Game() = default;
+  ~Game();
   void run();
 
  private:
@@ -79,8 +78,7 @@ class Game {
   BulletManager bullets_;
   ExpManager expManager_;
   PlayerStats stats_;
-  SkillManager
-      skillMgr_;  
+  SkillManager skillMgr_;
   WaveManager waveMgr_;
 
   ScoreSystem score_;

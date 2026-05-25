@@ -43,7 +43,7 @@
 // ── Đạn boss bắn ra ──────────────────────────────────────────
 struct BossProjectile {
   sf::Vector2f origin;
-  sf::Vector2f direction;  // đã normalize
+  sf::Vector2f direction;
   float speed = 240.f;
   float damage = 2.f;
 };
@@ -69,11 +69,13 @@ enum class DemonState { Chase, Attack };
 class DemonLord : public IMonster {
  public:
   // ── Sprite ───────────────────────────────────────────────
-  static constexpr int FRAME_W = 150;
-  static constexpr int FRAME_H = 150;
-  static constexpr int FRAMES_RUN = 8;
-  static constexpr int FRAMES_ATTACK = 8;
-  static constexpr float SCALE = 2.4f;
+  // demonlord.png: 1344x176px — 6 frames đều nhau, mỗi frame 224px wide
+  // Sprite thực nằm khoảng x=21..207 (local), y=9..175 trong mỗi slot 224x176
+  static constexpr int FRAME_W = 224;
+  static constexpr int FRAME_H = 176;
+  static constexpr int FRAMES_RUN = 6;
+  static constexpr int FRAMES_ATTACK = 6;
+  static constexpr float SCALE = 1.f;
 
   static constexpr float FRAME_TIME_RUN = 0.09f;
   static constexpr float FRAME_TIME_ATTACK = 0.07f;
@@ -131,8 +133,8 @@ class DemonLord : public IMonster {
 
   static bool loadTextures() {
     if (texturesLoaded_) return true;
-    bool ok = texRun_.loadFromFile("hinh anh\\bossrun.png");
-    ok &= texAttack_.loadFromFile("hinh anh\\bosatk.png");
+    bool ok = texRun_.loadFromFile("hinh anh\\demonlord.png");
+    ok &= texAttack_.loadFromFile("hinh anh\\demonlord.png");
     if (ok) texturesLoaded_ = true;
     return ok;
   }
@@ -143,7 +145,7 @@ class DemonLord : public IMonster {
   void update(float dt, sf::Vector2f playerPos) override {
     if (dead_) return;
 
-    flipX_ = (playerPos.x < pos_.x);
+    flipX_ = (playerPos.x > pos_.x);
     updatePhase();
 
     // ── Chase / Attack ───────────────────────────────────
@@ -204,6 +206,9 @@ class DemonLord : public IMonster {
     pos_ += kbVel_ * dt;
     kbVel_ *= 0.78f;
 
+    // Cập nhật Aura nhấp nháy dựa trên Delta Time để không bị phụ thuộc FPS
+    glowT_ += dt * 3.0f;
+
     advanceAnim(dt);
   }
 
@@ -214,7 +219,6 @@ class DemonLord : public IMonster {
     if (dead_) return;
 
     // Aura màu theo phase
-    glowT_ += 0.05f;
     float pulse = 0.5f + 0.5f * std::sin(glowT_);
     sf::Color auraCol = auraColorForPhase();
     sf::CircleShape aura(HIT_RADIUS * 1.5f);
@@ -409,9 +413,9 @@ class DemonLord : public IMonster {
       spiralAngle_ += 0.5f;
 
     } else if (phase_ == DemonPhase::Phase2) {
-      // Xoắn ốc 2 nhánh đối diện
-      for (int i = 0; i < 2; ++i) {
-        float angle = spiralAngle_ + float(i) * PI;
+      // Xoắn ốc 4 nhánh chữ thập (Đã fix từ 2 -> 4 để đúng với thiết kế)
+      for (int i = 0; i < 4; ++i) {
+        float angle = spiralAngle_ + float(i) * (PI / 2.f);
         sf::Vector2f dir = {std::cos(angle), std::sin(angle)};
         pendingProj_.push_back({pos_, dir, PROJ_SPEED, PROJ_DAMAGE});
       }
@@ -452,12 +456,13 @@ class DemonLord : public IMonster {
         }
         break;
       case DemonPhase::Phase2:
-        // 3 Skeleton ngẫu nhiên
+        // 3 Zombie ngẫu nhiên (Đã đổi do trong Game.cpp không có register
+        // skeleton)
         for (int i = 0; i < 3; ++i) {
           float angle = (float(i) / 3) * 2.f * PI;
           sf::Vector2f offset = {std::cos(angle) * 250.f,
                                  std::sin(angle) * 250.f};
-          pendingSummons_.push_back({"skeleton", pos_ + offset});
+          pendingSummons_.push_back({"zombie", pos_ + offset});
         }
         break;
       case DemonPhase::Phase3:
@@ -555,7 +560,7 @@ class DemonLord : public IMonster {
   float aoeTimer_ = 0.f;
 
   sf::Vector2f kbVel_ = {};
-  mutable float glowT_ = 0.f;
+  float glowT_ = 0.f;
 
   std::vector<BossProjectile> pendingProj_;
   std::vector<SummonRequest> pendingSummons_;

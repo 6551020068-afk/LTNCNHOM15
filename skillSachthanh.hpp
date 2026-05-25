@@ -21,6 +21,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include "ISkill.hpp"
+
 static constexpr float BIBLE_PI = 3.14159265f;
 
 // ── Kết quả 1 lần hit ────────────────────────────────────────────────────────
@@ -52,13 +54,14 @@ class HolyBibleSkill {
     if (texEvoLoaded_) texEvo_.setSmooth(false);
   }
 
+  int getBooks() const { return books_; }
+
   // ── isUnlocked / level helpers ───────────────────────────────────────────
   bool isUnlocked() const { return unlocked_; }
   int getLevel() const { return level_; }  // 0 = base khi mới unlock
   int getMaxLevel() const { return maxLevel_; }
   bool isMaxLevel() const { return level_ >= maxLevel_; }
   bool isEvolved() const { return evolved_; }
-  int getBooks() const { return books_; }
 
   // ── Cooldown helpers (dùng cho SkillManager::applyUpgrade AttackSpeed) ──
   float getCooldown() const { return cooldownMax_; }

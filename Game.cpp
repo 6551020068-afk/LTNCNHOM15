@@ -34,6 +34,8 @@ struct BossBulletLive {
 static std::vector<BossBulletLive>
     bossBullets_;  // global trong translation unit
 
+Game::~Game() = default;
+
 // ════════════════════════════════════════════════════════════
 //  Constructor
 // ════════════════════════════════════════════════════════════
@@ -98,13 +100,14 @@ Game::Game()
   HolyBibleSkill::loadEvolvedTexture("hinh anh\\Sprite-Unholy_Vespers.png");
 
   // Tải các ảnh cho bảng nâng cấp kỹ năng
-  upgradeIcons_[UpgradeType::Knife].loadFromFile(
+  (void)upgradeIcons_[UpgradeType::Knife].loadFromFile(
       "hinh anh\\icon_knife.png");  // Sửa lại thành icon-Knife.png nếu ảnh của
                                     // bạn tên như vậy
-  upgradeIcons_[UpgradeType::LightningRing].loadFromFile(
+  (void)upgradeIcons_[UpgradeType::LightningRing].loadFromFile(
       "hinh anh\\icon_lightning.png");
-  upgradeIcons_[UpgradeType::Garlic].loadFromFile("hinh anh\\icon_Garlic.png");
-  upgradeIcons_[UpgradeType::HolyBible].loadFromFile(
+  (void)upgradeIcons_[UpgradeType::Garlic].loadFromFile(
+      "hinh anh\\icon_Garlic.png");
+  (void)upgradeIcons_[UpgradeType::HolyBible].loadFromFile(
       "hinh anh\\icon_bible.png");
 
   std::cout << "=== Warrior Survivors ===\n"
@@ -178,7 +181,8 @@ void Game::applyDifficulty() {
 // ════════════════════════════════════════════════════════════
 void Game::endGame() {
   gameState_ = GameState::GameOver;
-  SoundManager::get().playMusic(SoundManager::BGM::GAMEOVER_BGM, false);
+  SoundManager::get().stopMusic();
+  SoundManager::get().play(SoundManager::SFX::GAMEOVER);
 
   saveData_.lastScore = score_.score;
   saveData_.lastCharIndex = selectedChar_;
@@ -239,7 +243,9 @@ void Game::restartGame() {
   applyCharacterClass(selectedChar_);
 
   waveMgr_.init(monsters_, difficulty_);
-  monsters_.spawnInitial(camera_, 3);
+  monsters_.spawnInitial(
+      camera_,
+      1);  // Giảm số lượng quái sinh ra ngay lập tức ở đầu game từ 3 xuống 1
 
   SoundManager::get().playMusic(SoundManager::BGM::GAME_BGM);
   gameState_ = GameState::Playing;
@@ -751,6 +757,111 @@ void Game::render() {
 }
 
 // ════════════════════════════════════════════════════════════
+//  Upgrade system
+// ════════════════════════════════════════════════════════════
+void Game::buildUpgradeOptions() {
+  std::vector<UpgradeOption> pool;
+
+  pool.push_back({UpgradeType::Damage, "TANG DAME", "Tang sat thuong +0.2",
+                  sf::Color(220, 60, 60)});
+
+  // Regen (Hồi máu)
+  if (stats_.regenLevel < 5) {  // Cấu hình tối đa 5 level
+    pool.push_back(
+        {UpgradeType::Regen,
+         "HOI MAU Lv" + std::to_string(stats_.regenLevel + 1),
+         "Hoi " + std::to_string((stats_.regenLevel + 1) * 0.2f).substr(0, 3) +
+             " HP moi giay",
+         sf::Color(50, 220, 80)});
+  }
+
+  // Knife
+  if (!skillMgr_.hasKnife())
+    pool.push_back({UpgradeType::Knife, "KNIFE", "Dao bay theo huong",
+                    sf::Color(200, 200, 60)});
+  else if (skillMgr_.knifeMaxed() && !skillMgr_.knifeEvolved())
+    pool.push_back({UpgradeType::Knife, "KNIFE EVOLVE", "Thousand Edge",
+                    sf::Color(255, 220, 0)});
+  else if (!skillMgr_.knifeEvolved())
+    pool.push_back({UpgradeType::Knife,
+                    "KNIFE Lv" + std::to_string(skillMgr_.getKnifeLevel() + 1),
+                    "Tang so dao & toc do", sf::Color(200, 200, 60)});
+
+  // Lightning
+  if (!skillMgr_.hasLightning())
+    pool.push_back({UpgradeType::LightningRing, "LIGHTNING",
+                    "Set danh quai gan", sf::Color(100, 180, 255)});
+  else if (skillMgr_.lightningMaxed() && !skillMgr_.lightningEvolved())
+    pool.push_back({UpgradeType::LightningRing, "LIGHTNING EVOLVE",
+                    "Thunder Loop", sf::Color(180, 230, 255)});
+  else if (!skillMgr_.lightningEvolved())
+    pool.push_back(
+        {UpgradeType::LightningRing,
+         "LIGHTNING Lv" + std::to_string(skillMgr_.getLightningLevel() + 1),
+         "Tang dame & vung set", sf::Color(100, 180, 255)});
+
+  // Garlic
+  if (!skillMgr_.hasGarlic())
+    pool.push_back({UpgradeType::Garlic, "GARLIC", "Vung AoE day lui quai",
+                    sf::Color(180, 255, 100)});
+  else if (skillMgr_.garlicMaxed() && !skillMgr_.garlicEvolved())
+    pool.push_back({UpgradeType::Garlic, "GARLIC EVOLVE", "Soul Eater: hut mau",
+                    sf::Color(100, 255, 80)});
+  else if (!skillMgr_.garlicEvolved())
+    pool.push_back(
+        {UpgradeType::Garlic,
+         "GARLIC Lv" + std::to_string(skillMgr_.getGarlicLevel() + 1),
+         "Tang range & knockback", sf::Color(160, 230, 80)});
+
+  // ── Bible (MỚI) ──────────────────────────────────────────────────────────
+  if (!skillMgr_.hasBible())
+    pool.push_back({UpgradeType::HolyBible, "SACH THANH",
+                    "Mo khoa: sach bay orbit, gay damage khi cham quai",
+                    sf::Color(200, 170, 255)});
+  else if (skillMgr_.bibleMaxed() && !skillMgr_.bibleEvolved())
+    pool.push_back({UpgradeType::HolyBible, "THANH KINH QUY [EVO]",
+                    "Tien hoa: damage x2, them sach, xoay nhanh hon!",
+                    sf::Color(255, 180, 255)});
+  else if (!skillMgr_.bibleEvolved())
+    pool.push_back({UpgradeType::HolyBible, skillMgr_.getBibleUpgradeTitle(),
+                    skillMgr_.getBibleUpgradeDesc(), sf::Color(200, 170, 255)});
+
+  auto rng = std::default_random_engine{std::random_device{}()};
+  std::shuffle(pool.begin(), pool.end(), rng);
+  for (int i = 0; i < 3; ++i) upgradeOptions_[i] = pool[i % pool.size()];
+}
+
+void Game::applyUpgrade(UpgradeType t) {
+  switch (t) {
+    case UpgradeType::Damage:
+      // Thay vì gọi stats_.upgradeDamage() (mặc định +1)
+      // Ta cộng trực tiếp lượng damage mong muốn
+      stats_.damage += 0.2f;
+      break;
+    case UpgradeType::AttackSpeed:
+      stats_.upgradeAttackSpeed();
+      break;
+    case UpgradeType::Regen:
+      stats_.regenLevel++;
+      break;
+    case UpgradeType::Knife:
+      skillMgr_.applyUpgrade(SkillUpgradeType::Knife);
+      break;
+    case UpgradeType::LightningRing:
+      skillMgr_.applyUpgrade(SkillUpgradeType::LightningRing);
+      break;
+    case UpgradeType::Garlic:
+      skillMgr_.applyUpgrade(SkillUpgradeType::Garlic);
+      break;
+    case UpgradeType::HolyBible:
+      skillMgr_.applyUpgrade(SkillUpgradeType::HolyBible);
+      break;  // ← đổi
+  }
+  paused_ = false;
+  hoveredCard_ = -1;
+}
+
+// ════════════════════════════════════════════════════════════
 //  renderHUD
 // ════════════════════════════════════════════════════════════
 static void drawBar(sf::RenderWindow& win, sf::Vector2f pos, sf::Vector2f size,
@@ -919,6 +1030,40 @@ void Game::renderHUD() {
     }
   }
 
+  // Timer (thời gian sống sót) ở giữa phía trên
+  {
+    sf::Text timerText(font_, score_.formatTime(), 28);
+    timerText.setFillColor(sf::Color::White);
+    timerText.setOutlineColor(sf::Color::Black);
+    timerText.setOutlineThickness(2.f);
+    auto b = timerText.getLocalBounds();
+    timerText.setOrigin({b.size.x / 2.f, 0.f});
+    timerText.setPosition({winW / 2.f, mg});
+    window_.draw(timerText);
+  }
+
+  // Score và Best Score ở góc phải phía trên
+  {
+    int bestScore = (difficulty_ == Difficulty::Hard) ? saveData_.highScoreHard
+                                                      : saveData_.highScoreEasy;
+
+    sf::Text scoreText(font_, "Score: " + std::to_string(score_.score), 20);
+    scoreText.setFillColor(sf::Color(255, 230, 60));  // Màu vàng
+    scoreText.setOutlineColor(sf::Color::Black);
+    scoreText.setOutlineThickness(2.f);
+    auto sb = scoreText.getLocalBounds();
+    scoreText.setPosition({winW - sb.size.x - mg, mg});
+    window_.draw(scoreText);
+
+    sf::Text bestText(font_, "Best: " + std::to_string(bestScore), 16);
+    bestText.setFillColor(sf::Color(100, 200, 255));  // Màu xanh sáng
+    bestText.setOutlineColor(sf::Color::Black);
+    bestText.setOutlineThickness(2.f);
+    auto bb = bestText.getLocalBounds();
+    bestText.setPosition({winW - bb.size.x - mg, mg + 28.f});
+    window_.draw(bestText);
+  }
+
   // HUD Message
   if (hudMessageTimer_ > 0.f) {
     float alpha = std::min(hudMessageTimer_ / 0.5f, 1.f) * 255.f;
@@ -1018,111 +1163,6 @@ void Game::renderGameOver() {
   drawText("[R] RESTART      [M] MAIN MENU", 16, cx, cy + 180.f,
            sf::Color(130, 130, 130));
   window_.setView(camera_.getView());
-}
-
-// ════════════════════════════════════════════════════════════
-//  Upgrade system
-// ════════════════════════════════════════════════════════════
-void Game::buildUpgradeOptions() {
-  std::vector<UpgradeOption> pool;
-
-  pool.push_back({UpgradeType::Damage, "TANG DAME", "Tang sat thuong +0.2",
-                  sf::Color(220, 60, 60)});
-
-  // Regen (Hồi máu)
-  if (stats_.regenLevel < 5) {  // Cấu hình tối đa 5 level
-    pool.push_back(
-        {UpgradeType::Regen,
-         "HOI MAU Lv" + std::to_string(stats_.regenLevel + 1),
-         "Hoi " + std::to_string((stats_.regenLevel + 1) * 0.2f).substr(0, 3) +
-             " HP moi giay",
-         sf::Color(50, 220, 80)});
-  }
-
-  // Knife
-  if (!skillMgr_.hasKnife())
-    pool.push_back({UpgradeType::Knife, "KNIFE", "Dao bay theo huong",
-                    sf::Color(200, 200, 60)});
-  else if (skillMgr_.knifeMaxed() && !skillMgr_.knifeEvolved())
-    pool.push_back({UpgradeType::Knife, "KNIFE EVOLVE", "Thousand Edge",
-                    sf::Color(255, 220, 0)});
-  else if (!skillMgr_.knifeEvolved())
-    pool.push_back({UpgradeType::Knife,
-                    "KNIFE Lv" + std::to_string(skillMgr_.getKnifeLevel() + 1),
-                    "Tang so dao & toc do", sf::Color(200, 200, 60)});
-
-  // Lightning
-  if (!skillMgr_.hasLightning())
-    pool.push_back({UpgradeType::LightningRing, "LIGHTNING",
-                    "Set danh quai gan", sf::Color(100, 180, 255)});
-  else if (skillMgr_.lightningMaxed() && !skillMgr_.lightningEvolved())
-    pool.push_back({UpgradeType::LightningRing, "LIGHTNING EVOLVE",
-                    "Thunder Loop", sf::Color(180, 230, 255)});
-  else if (!skillMgr_.lightningEvolved())
-    pool.push_back(
-        {UpgradeType::LightningRing,
-         "LIGHTNING Lv" + std::to_string(skillMgr_.getLightningLevel() + 1),
-         "Tang dame & vung set", sf::Color(100, 180, 255)});
-
-  // Garlic
-  if (!skillMgr_.hasGarlic())
-    pool.push_back({UpgradeType::Garlic, "GARLIC", "Vung AoE day lui quai",
-                    sf::Color(180, 255, 100)});
-  else if (skillMgr_.garlicMaxed() && !skillMgr_.garlicEvolved())
-    pool.push_back({UpgradeType::Garlic, "GARLIC EVOLVE", "Soul Eater: hut mau",
-                    sf::Color(100, 255, 80)});
-  else if (!skillMgr_.garlicEvolved())
-    pool.push_back(
-        {UpgradeType::Garlic,
-         "GARLIC Lv" + std::to_string(skillMgr_.getGarlicLevel() + 1),
-         "Tang range & knockback", sf::Color(160, 230, 80)});
-
-  // ── Bible (MỚI) ──────────────────────────────────────────────────────────
-  if (!skillMgr_.hasBible())
-    pool.push_back({UpgradeType::HolyBible, "SACH THANH",
-                    "Mo khoa: sach bay orbit, gay damage khi cham quai",
-                    sf::Color(200, 170, 255)});
-  else if (skillMgr_.bibleMaxed() && !skillMgr_.bibleEvolved())
-    pool.push_back({UpgradeType::HolyBible, "THANH KINH QUY [EVO]",
-                    "Tien hoa: damage x2, them sach, xoay nhanh hon!",
-                    sf::Color(255, 180, 255)});
-  else if (!skillMgr_.bibleEvolved())
-    pool.push_back({UpgradeType::HolyBible, skillMgr_.getBibleUpgradeTitle(),
-                    skillMgr_.getBibleUpgradeDesc(), sf::Color(200, 170, 255)});
-
-  auto rng = std::default_random_engine{std::random_device{}()};
-  std::shuffle(pool.begin(), pool.end(), rng);
-  for (int i = 0; i < 3; ++i) upgradeOptions_[i] = pool[i % pool.size()];
-}
-
-void Game::applyUpgrade(UpgradeType t) {
-  switch (t) {
-    case UpgradeType::Damage:
-      // Thay vì gọi stats_.upgradeDamage() (mặc định +1)
-      // Ta cộng trực tiếp lượng damage mong muốn
-      stats_.damage += 0.2f;
-      break;
-    case UpgradeType::AttackSpeed:
-      stats_.upgradeAttackSpeed();
-      break;
-    case UpgradeType::Regen:
-      stats_.regenLevel++;
-      break;
-    case UpgradeType::Knife:
-      skillMgr_.applyUpgrade(SkillUpgradeType::Knife);
-      break;
-    case UpgradeType::LightningRing:
-      skillMgr_.applyUpgrade(SkillUpgradeType::LightningRing);
-      break;
-    case UpgradeType::Garlic:
-      skillMgr_.applyUpgrade(SkillUpgradeType::Garlic);
-      break;
-    case UpgradeType::HolyBible:
-      skillMgr_.applyUpgrade(SkillUpgradeType::HolyBible);
-      break;  // ← đổi
-  }
-  paused_ = false;
-  hoveredCard_ = -1;
 }
 
 // ════════════════════════════════════════════════════════════
@@ -1393,7 +1433,7 @@ void Game::renderVictory() {
 
     // "NEW RECORD" flash
     if (score_.score >= hiScore && score_.score > 0 && appear >= 1.f) {
-      float flash = std::abs(std::sin(t * 5.f));
+      float flash = std::abs(std::sin(victoryAnimTime_ * 5.f));
       sf::Text rec(font_, "  ** KY LUC MOI **  ", 20);
       rec.setFillColor(
           sf::Color(255, 255, 0, static_cast<uint8_t>(150 + 105 * flash)));
@@ -1566,7 +1606,9 @@ void Game::renderPauseMenu() {
 //  handlePauseMenuClick
 // ════════════════════════════════════════════════════════════
 void Game::handlePauseMenuClick(sf::Vector2f mouseUI) {
-  float cx = WIN_W / 2.f, cy = WIN_H / 2.f;
+  auto winSize = window_.getSize();
+  float cx = static_cast<float>(winSize.x) / 2.f;
+  float cy = static_cast<float>(winSize.y) / 2.f;
   const float bW = 240.f, bH = 48.f;
   auto hit = [&](float btnY) {
     return mouseUI.x >= cx - bW / 2.f && mouseUI.x <= cx + bW / 2.f &&

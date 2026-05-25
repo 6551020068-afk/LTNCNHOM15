@@ -28,7 +28,7 @@ class Zombie : public IMonster {
   static constexpr float FRAME_TIME_DEATH =
       0.04f;  // Giảm xuống để hoạt ảnh chết chạy nhanh hơn
   static constexpr int FRAMES_DEATH = 18;  // dùng lại 4 frame walk làm death
-  static constexpr int MAX_HP = 10;
+  static constexpr int MAX_HP = 7;
 
   explicit Zombie(sf::Vector2f pos);
   static bool loadTextures();

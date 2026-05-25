@@ -79,20 +79,6 @@ class Slime : public IMonster {
     target.draw(eye);
     eye.setPosition({pos_.x + 7.f, pos_.y - 8.f - bounce});
     target.draw(eye);
-
-    // HP bar
-    const float barW = 44.f, barH = 5.f;
-    float ratio = static_cast<float>(hp_) / static_cast<float>(maxHp_);
-    sf::RectangleShape bg({barW, barH});
-    bg.setFillColor(sf::Color(60, 0, 0, (uint8_t)alpha));
-    bg.setOrigin({barW / 2.f, barH / 2.f});
-    bg.setPosition({pos_.x, pos_.y - HIT_RADIUS - 12.f - bounce});
-    target.draw(bg);
-    sf::RectangleShape bar({barW * ratio, barH});
-    bar.setFillColor(sf::Color(80, 220, 80, (uint8_t)alpha));
-    bar.setOrigin({barW / 2.f, barH / 2.f});
-    bar.setPosition({pos_.x, pos_.y - HIT_RADIUS - 12.f - bounce});
-    target.draw(bar);
   }
 
   void drawDebug(sf::RenderTarget& target) const override {

@@ -68,7 +68,6 @@ class GarlicSkill : public ISkill {
     applyLevelStats();
   }
 
-  // ── tryFire — update timer + effect, KHÔNG spawn dan ────
   std::vector<ShotData> tryFire(sf::Vector2f origin, sf::Vector2f /*facing*/,
                                 float dt) override {
     tickCooldown(dt);
@@ -81,8 +80,6 @@ class GarlicSkill : public ISkill {
     return {};  // Khong spawn dan
   }
 
-  // ── tickDamage: Game goi moi frame, tra ve danh sach bi danh
-  // monsters: {vi tri, void* IMonster}
   std::vector<GarlicHitInfo> tickDamage(
       sf::Vector2f playerPos,
       const std::vector<std::pair<sf::Vector2f, void*>>& monsters,
@@ -102,7 +99,6 @@ class GarlicSkill : public ISkill {
         hit.damage = baseDamage * currentDamage_;
         hit.killedByHit = false;
 
-        // Knockback: day tu player ra ngoai
         float dist = std::sqrt(distSq);
         if (dist > 0.1f)
           hit.knockbackDir = diff / dist;
