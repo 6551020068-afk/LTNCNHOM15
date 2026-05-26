@@ -1,4 +1,4 @@
-# Warrior Survivors
+# Game Survarival 2d sử dụng C++ và SFML
 
 ## Giới thiệu
 
