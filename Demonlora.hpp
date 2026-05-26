@@ -561,15 +561,12 @@ class DemonLord : public IMonster {
 
   sf::Vector2f kbVel_ = {};
   float glowT_ = 0.f;
-
   std::vector<BossProjectile> pendingProj_;
   std::vector<SummonRequest> pendingSummons_;
   std::vector<AoePulse> pendingAoe_;
-
   int pendingMeleeDamage_ = 0;
   bool killedFlag_ = false;
   float attackTimer_ = 0.f;
-
   inline static sf::Texture texRun_;
   inline static sf::Texture texAttack_;
   inline static bool texturesLoaded_ = false;
