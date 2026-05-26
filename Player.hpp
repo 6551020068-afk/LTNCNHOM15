@@ -2,7 +2,6 @@
 #include <SFML/Graphics.hpp>
 #include <memory>
 
-#include "CollisionMap.hpp"
 #include "Constants.hpp"
 
 enum class Direction { Down = 0, Left, Right, Up, COUNT };
@@ -25,11 +24,10 @@ class Player {
   static constexpr float HIT_W = 18.f;
   static constexpr float HIT_H = 18.f;
 
-  explicit Player(const CollisionMap& colMap);
+  Player();
 
   // Gọi sau khi window sẵn sàng, truyền index class
   // (0=Rogue,1=Mage,2=Druid,3=Cleric)
-  bool load();                      // tương thích cũ – load Rogue mặc định
   bool loadForClass(int classIdx);  // load spritesheet theo class đã chọn
   void update(float dt);
   void draw(sf::RenderTarget& target) const;
@@ -60,12 +58,9 @@ class Player {
   float getSpeed() const { return speed_; }
 
  private:
-  bool collidesAt(float cx, float cy) const;
   sf::Vector2f readInput();
   void advanceAnimation(float dt, bool isMoving);
   void syncSprite();
-
-  const CollisionMap& colMap_;
 
   // Frame size hiện tại – được set trong loadForClass()
   int frameW_ = 197;

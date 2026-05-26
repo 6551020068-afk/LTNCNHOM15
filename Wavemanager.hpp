@@ -158,6 +158,12 @@ class WaveManager {
     return t > 0.f ? std::optional<float>(t) : std::nullopt;
   }
 
+  void forceMapEvent(MapEventPattern pat, const std::string& monsterId,
+                     int count, float radius, const std::string& msg = "") {
+    mapEvents_.insert(mapEvents_.begin() + nextEvent_,
+                      {gameTime_, monsterId, count, pat, radius, msg});
+  }
+
  private:
   // ════════════════════════════════════════════════════════
   //  WAVE SCRIPT

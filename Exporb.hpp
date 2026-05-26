@@ -54,8 +54,6 @@ class ExpOrb {
 
     // Tự động lấy kích thước thực của ảnh thay vì fix cứng 16x16
     sf::Vector2u size = tex_.getSize();
-    spr.setTextureRect(sf::IntRect(
-        {0, 0}, {static_cast<int>(size.x), static_cast<int>(size.y)}));
     spr.setOrigin({size.x / 2.f, size.y / 2.f});
     spr.setScale({SCALE, SCALE});
     spr.setPosition(pos_);

@@ -8,7 +8,6 @@
 #include "BulletManager.hpp"
 #include "Camera.hpp"
 #include "CharacterClass.hpp"
-#include "CollisionMap.hpp"
 #include "Demonlora.hpp"
 #include "ExpManager.hpp"
 #include "MenuSystem.hpp"
@@ -60,7 +59,6 @@ class Game {
   void buildUpgradeOptions();
   void applyUpgrade(UpgradeType t);
   void updateHover(sf::Vector2i mousePixel);
-  sf::Vector2f mouseToWorld() const;
 
   void applyCharacterClass(int charIndex);
   void applyDifficulty();
@@ -68,7 +66,6 @@ class Game {
   void restartGame();
 
   sf::RenderWindow window_;
-  CollisionMap colMap_;
   TileMap tileMap_;
   Player player_;
   Camera camera_;
@@ -89,7 +86,6 @@ class Game {
   bool paused_ = false;
   int hoveredCard_ = -1;
   int selectedChar_ = 0;
-  float playerSpeed_ = Player::SPEED;
 
   std::array<UpgradeOption, 3> upgradeOptions_;
   std::unordered_map<UpgradeType, sf::Texture> upgradeIcons_;

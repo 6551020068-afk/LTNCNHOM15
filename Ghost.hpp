@@ -62,7 +62,7 @@ class Ghost : public IMonster {
   float pulseTimer_ = 0.f;  // timer riêng cho hiệu ứng alpha pulsing
   bool animDone_ = false;
   bool flipX_ = false;
-  mutable bool hitFlash_ = true;
+  bool hitFlash_ = true;
 
   void setState(GhostState s);
   void advanceAnim(float dt);

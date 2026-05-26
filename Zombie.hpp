@@ -46,7 +46,7 @@ class Zombie : public IMonster {
   float timer_ = 0.f;
   bool animDone_ = false;
   bool flipX_ = false;
-  mutable bool hitFlash_ = true;
+  bool hitFlash_ = true;
 
   void setState(ZombieState s);
   void advanceAnim(float dt);

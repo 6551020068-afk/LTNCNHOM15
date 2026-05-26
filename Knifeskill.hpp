@@ -21,17 +21,17 @@ class KnifeSkill : public ISkill {
   };
 
   static constexpr int MAX_LEVEL = 8;
-  // knives: số dao, cooldown, pierce: số lần xuyên thấu, damage: hệ số nhân sát
-  // thương, speed: tốc độ bay của dao
+  // Bảng chỉ số kỹ năng theo từng cấp (Số dao, Cooldown, Xuyên thấu, ST nhân,
+  // Tốc độ)
   inline static const LevelStats LEVEL_TABLE[MAX_LEVEL] = {
       {1, 0.8f, 0, 1.0f, 500.f},   // Lv1
       {2, 0.8f, 0, 1.0f, 540.f},   // Lv2
       {2, 0.7f, 0, 1.0f, 540.f},   // Lv3
       {3, 0.7f, 1, 1.2f, 560.f},   // Lv4
-      {3, 0.6f, 1, 1.5f, 580.f},   // Lv5 (Giảm từ 2 xuống 1.5)
-      {4, 0.6f, 2, 1.5f, 590.f},   // Lv6 (Giảm từ 2 xuống 1.5)
-      {4, 0.6f, 2, 1.8f, 600.f},   // Lv7 (Giảm từ 2 xuống 1.8)
-      {6, 0.50f, 2, 2.0f, 610.f},  // Lv8 MAX (Giảm từ 3 xuống 2.0)
+      {3, 0.6f, 1, 1.5f, 580.f},   // Lv5
+      {4, 0.6f, 2, 1.5f, 590.f},   // Lv6
+      {4, 0.6f, 2, 1.8f, 600.f},   // Lv7
+      {6, 0.50f, 2, 2.0f, 610.f},  // Lv8 (MAX)
   };
 
   KnifeSkill() : ISkill("knife", "Knife", LEVEL_TABLE[0].cooldown) {
@@ -50,7 +50,8 @@ class KnifeSkill : public ISkill {
     tickCooldown(dt);
     if (!isReady()) return {};
 
-    // Dùng lastDir_ (hướng di chuyển), fallback về facing nếu chưa có
+    // Xác định hướng ném: Ưu tiên hướng di chuyển, nếu đứng im dùng hướng đối
+    // mặt
     sf::Vector2f dir = (lastDir_.x != 0.f || lastDir_.y != 0.f)
                            ? lastDir_
                            : knifeNormalize(facing);
@@ -60,11 +61,11 @@ class KnifeSkill : public ISkill {
     if (evolved_) {
       ++burstShotsFired_;
       if (burstShotsFired_ >= maxBurstShots_) {
-        setCooldown(
-            burstRestTime_);  // Nghỉ một khoảng thời gian sau khi hết đợt
+        setCooldown(burstRestTime_);  // Nghỉ ngơi giữa các đợt ném
         burstShotsFired_ = 0;
       } else {
-        setCooldown(burstInterval_);  // Giãn cách giữa các dao trong 1 đợt
+        setCooldown(
+            burstInterval_);  // Thời gian chờ giữa các dao trong cùng 1 đợt
       }
     }
     resetCooldown();
@@ -78,7 +79,7 @@ class KnifeSkill : public ISkill {
     float baseAngle = std::atan2(dir.y, dir.x);
     int n = currentKnives_;
     for (int i = 0; i < n; ++i) {
-      // Nhiều dao: xếp song song nhau (offset vuông góc với hướng bắn)
+      // Tính toán góc nghiêng để các phi tiêu bay tỏa ra song song
       float offset = 0.f;
       if (n > 1) {
         float t = (float)i / (float)(n - 1) - 0.5f;
@@ -91,7 +92,7 @@ class KnifeSkill : public ISkill {
     return {s};
   }
 
-  // ── Upgrade ──────────────────────────────────────────────
+  // Cập nhật chỉ số kỹ năng khi lên cấp
   bool upgrade() override {
     if (evolved_ || info_.level >= MAX_LEVEL) return false;
     ++info_.level;
@@ -99,15 +100,13 @@ class KnifeSkill : public ISkill {
     return true;
   }
 
-  // Evolution — Thousand Edge:
-  // Không thay đổi số dao hay hướng bắn
-  // Chỉ giảm cooldown xuống cực thấp → bắn liên tục
+  // Kích hoạt dạng tiến hóa (Thousand Edge: ném dao liên tục thành từng đợt)
   bool evolve() {
     if (info_.level < MAX_LEVEL || evolved_) return false;
     evolved_ = true;
-    setCooldown(burstInterval_);  // Bắt đầu đợt bắn đầu tiên
+    setCooldown(burstInterval_);
     burstShotsFired_ = 0;
-    info_.description = "EVOLVED: Thousand Edge (ban theo dot roi nghi)";
+    info_.description = "EVOLVED: Thousand Edge (Ban lien tuc)";
     return true;
   }
 
@@ -127,18 +126,18 @@ class KnifeSkill : public ISkill {
     currentSpeed_ = s.speed;
   }
 
-  // Hướng di chuyển cuối cùng của player (8 hướng WASD)
-  sf::Vector2f lastDir_ = {1.f, 0.f};  // mặc định nhìn phải
+  // Hướng di chuyển gần nhất của nhân vật
+  sf::Vector2f lastDir_ = {1.f, 0.f};
 
   int currentKnives_ = 1;
   int currentPierce_ = 0;
   int currentDamage_ = 1;
   float currentSpeed_ = 480.f;
-  float spreadOffset_ = 0.15f;  // radian, khoảng cách giữa các dao
+  float spreadOffset_ = 0.15f;
   bool evolved_ = false;
 
   int burstShotsFired_ = 0;
-  int maxBurstShots_ = 20;  // Số dao phóng ra trong 1 đợt (có thể chỉnh tuỳ ý)
-  float burstRestTime_ = 1.5f;   // Thời gian nghỉ giữa các đợt (giây)
-  float burstInterval_ = 0.08f;  // Thời gian giữa các dao trong cùng 1 đợt
+  int maxBurstShots_ = 20;       // Số lượng dao tối đa tung ra trong một đợt
+  float burstRestTime_ = 1.5f;   // Thời gian chờ phục hồi giữa các đợt (giây)
+  float burstInterval_ = 0.08f;  // Thời gian cách nhau giữa 2 lưỡi dao (giây)
 };

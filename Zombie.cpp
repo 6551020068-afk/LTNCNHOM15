@@ -3,14 +3,11 @@
 #include <cmath>
 #include <iostream>
 
-// dead_zombie.png: 936x40, 18 frames (fw=52)
-// Đảm bảo Zombie.hpp có: FRAMES_DEATH = 18, FRAME_W_DEATH = 52
-
 sf::Texture Zombie::texWalk_;
 sf::Texture Zombie::texDeath_;
 bool Zombie::texturesLoaded_ = false;
 
-// ─────────────────────────────────────────────────────────────
+// Khởi tạo và nạp hình ảnh vào bộ nhớ cho quái vật Zombie
 bool Zombie::loadTextures() {
   if (texturesLoaded_) return true;
   texturesLoaded_ = true;
@@ -21,7 +18,7 @@ bool Zombie::loadTextures() {
   }
   texWalk_.setSmooth(false);
 
-  // Hỗ trợ ảnh chết riêng (zombie-dead.png)
+  // Tải hình ảnh riêng dành cho lúc quái bị hạ gục
   if (!texDeath_.loadFromFile("hinh anh\\dead_zombie.png")) {
     texDeath_ = texWalk_;
   }
@@ -29,7 +26,6 @@ bool Zombie::loadTextures() {
   return ok;
 }
 
-// ─────────────────────────────────────────────────────────────
 Zombie::Zombie(sf::Vector2f pos) {
   typeId_ = "zombie";
   pos_ = pos;
@@ -38,12 +34,12 @@ Zombie::Zombie(sf::Vector2f pos) {
   alive_ = true;
   dead_ = false;
   attackRange_ = ATTACK_RANGE_PX;
-  attackDamage_ = 5;       // Số sát thương mỗi lần cắn
-  attackCooldown_ = 0.2f;  // 0.2 giây cắn 1 lần
+  attackDamage_ = 5;
+  attackCooldown_ = 0.2f;
   expValue_ = 5;
 }
 
-// ── Helpers ──────────────────────────────────────────────────
+// Chuyển đổi trạng thái của quái vật và reset bộ đếm thời gian hiệu ứng
 void Zombie::setState(ZombieState s) {
   if (state_ == s) return;
   state_ = s;
@@ -86,7 +82,7 @@ void Zombie::advanceAnim(float dt) {
     hitFlash_ = !hitFlash_;
     if (++frame_ >= currentFrameCount()) {
       if (state_ == ZombieState::Chase)
-        frame_ = 0;  // walk loop
+        frame_ = 0;
       else {
         frame_ = currentFrameCount() - 1;
         animDone_ = true;
@@ -95,7 +91,7 @@ void Zombie::advanceAnim(float dt) {
   }
 }
 
-// ── IMonster interface ────────────────────────────────────────
+// Cập nhật lượng HP khi chịu sát thương
 void Zombie::takeHit(int damage) {
   if (!alive_ || state_ == ZombieState::Death) return;
   hp_ -= damage;
@@ -118,10 +114,10 @@ bool Zombie::overlapsPoint(sf::Vector2f pt, float r) const {
 void Zombie::update(float dt, sf::Vector2f playerPos) {
   if (dead_) return;
 
-  // ── Chuyển trạng thái ────────────────────────────────────
+  // Quản lý và kết thúc hiệu ứng chuyển tiếp trạng thái
   switch (state_) {
     case ZombieState::Chase:
-      break;  // luôn đuổi theo player
+      break;
     case ZombieState::TakeHit:
       if (animDone_) setState(alive_ ? ZombieState::Chase : ZombieState::Death);
       break;
@@ -133,22 +129,22 @@ void Zombie::update(float dt, sf::Vector2f playerPos) {
       break;
   }
 
-  // ── Di chuyển (chỉ khi Chase hoặc TakeHit còn alive) ────
+  // Xử lý di chuyển và hướng tới người chơi
   if (state_ == ZombieState::Chase) {
     sf::Vector2f diff = playerPos - pos_;
     float dist = std::sqrt(diff.x * diff.x + diff.y * diff.y);
 
-    // Đánh người chơi nếu ở trong tầm
+    // Thực hiện tấn công nếu trong tầm đánh
     if (dist <= attackRange_) {
       tickAttack(dt, playerPos);
     }
 
     if (dist > 1.f) {
-      sf::Vector2f dir = seekMove(playerPos, SPEED, dt, /*stopRange=*/15.f);
-      // Đảo chiều lật ảnh để khớp với hướng quay mặt của ảnh gốc
+      sf::Vector2f dir = seekMove(playerPos, SPEED, dt, 15.f);
+      // Đảo chiều khung hình để tương ứng với hướng di chuyển
       flipX_ = (dir.x > 0.f);
     }
-    integrateVelocity(dt, /*damping=*/0.75f);
+    integrateVelocity(dt, 0.75f);
   }
 
   advanceAnim(dt);
@@ -161,7 +157,7 @@ void Zombie::draw(sf::RenderTarget& target) const {
   const float bossScale = boss ? 2.2f : 1.0f;
   const float finalScale = SCALE * bossScale;
 
-  // ── Boss: viền nhấp nháy ─────────────────────────────────
+  // Hiển thị vòng sáng nhấp nháy dưới chân nếu là Boss
   if (boss) {
     float pulse = std::abs(std::sin(timer_ * 4.f));
     uint8_t alpha = static_cast<uint8_t>(160 + 95 * pulse);
@@ -185,17 +181,14 @@ void Zombie::draw(sf::RenderTarget& target) const {
     target.draw(ring);
   }
 
-  // ── Sprite ───────────────────────────────────────────────
+  // Vẽ hình ảnh Zombie (Sprite) dựa trên số khung hình
   const sf::Texture& tex = currentTex();
 
   int totalFrames = (state_ == ZombieState::Death) ? FRAMES_DEATH : FRAMES_WALK;
-  // dead_zombie.png có fw=52 (18 frames), walk sprite có fw khác
-  // Luôn tính fw từ texture thực tế chia số frame đúng
   int fw = tex.getSize().x / totalFrames;
   int fh = tex.getSize().y;
-  if (fh == 0) fh = 1;  // Tránh lỗi chia cho 0
+  if (fh == 0) fh = 1;
 
-  // TakeHit: dùng walk frames để tránh index out-of-range
   int frameIdx =
       (state_ == ZombieState::TakeHit) ? (frame_ % FRAMES_WALK) : frame_;
 
@@ -203,13 +196,10 @@ void Zombie::draw(sf::RenderTarget& target) const {
   sprite.setTextureRect(sf::IntRect({frameIdx * fw, 0}, {fw, fh}));
   sprite.setOrigin({fw / 2.f, fh / 2.f});
 
-  // Áp dụng chung 1 mức scale cho cả đi bộ và chết để kích thước bằng nhau
   int walkFh = texWalk_.getSize().y;
   if (walkFh == 0) walkFh = 1;
   float sy = finalScale * (static_cast<float>(FRAME_H) / walkFh);
 
-  // Vì hình xác chết trong ảnh gốc bị vẽ nhỏ, ta nhân thêm hệ số phóng to
-  // Thay đổi 1.6f (tăng hoặc giảm) cho đến khi bạn thấy kích thước vừa mắt
   if (state_ == ZombieState::Death) {
     sy *= 4.0f;
   }
@@ -223,7 +213,6 @@ void Zombie::draw(sf::RenderTarget& target) const {
     sprite.setColor(hitFlash_ ? sf::Color(255, 80, 80)
                               : sf::Color(255, 160, 160));
   } else if (state_ == ZombieState::Death) {
-    // Chỉ fade ở 1/4 cuối animation, giữ nguyên màu gốc phần còn lại
     float ratio =
         static_cast<float>(frame_) / static_cast<float>(FRAMES_DEATH - 1);
     float fadeStart = 0.75f;
@@ -238,7 +227,7 @@ void Zombie::draw(sf::RenderTarget& target) const {
   }
   target.draw(sprite);
 
-  // ── Boss HP bar ──────────────────────────────────────────
+  // Hiển thị thanh máu (HP bar) cho Mini Boss
   if (boss) {
     float ratio = static_cast<float>(getHp()) / static_cast<float>(getMaxHp());
     const float barW = 80.f, barH = 8.f;
