@@ -3,15 +3,12 @@
 #include <cmath>
 #include <iostream>
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  load()
-// ─────────────────────────────────────────────────────────────────────────────
 #include "CharacterClass.hpp"
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Constructor
 // ─────────────────────────────────────────────────────────────────────────────
-Player::Player(const CollisionMap& colMap) : colMap_(colMap) {}
+Player::Player() {}
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  loadForClass() — load spritesheet + frame size theo class đã chọn
@@ -58,21 +55,6 @@ bool Player::loadForClass(int classIdx) {
   std::cerr << "[Player] Load OK: " << path << " frameW=" << frameW_
             << " frameH=" << frameH_ << "\n";
   return true;
-}
-
-bool Player::load() {
-  // Tương thích cũ — load Rogue (index 0) mặc định
-  return loadForClass(0);
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  Collision
-// ─────────────────────────────────────────────────────────────────────────────
-bool Player::collidesAt(float cx, float cy) const {
-  return colMap_.isSolidPixel(cx - HIT_W, cy - HIT_H) ||
-         colMap_.isSolidPixel(cx + HIT_W, cy - HIT_H) ||
-         colMap_.isSolidPixel(cx - HIT_W, cy + HIT_H) ||
-         colMap_.isSolidPixel(cx + HIT_W, cy + HIT_H);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -169,11 +151,8 @@ void Player::update(float dt) {
   // Normalize khi đi chéo
   if (vel.x != 0.f && vel.y != 0.f) vel /= std::sqrt(2.f);
 
-  float newX = pos_.x + vel.x * speed_ * dt;
-  if (!collidesAt(newX, pos_.y)) pos_.x = newX;
-
-  float newY = pos_.y + vel.y * speed_ * dt;
-  if (!collidesAt(pos_.x, newY)) pos_.y = newY;
+  pos_.x += vel.x * speed_ * dt;
+  pos_.y += vel.y * speed_ * dt;
 
   const float maxX =
       static_cast<float>(Constants::MAP_WIDTH * Constants::TILE_RENDER_W) -

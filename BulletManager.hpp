@@ -37,9 +37,6 @@ class BulletManager {
 
   void draw(sf::RenderTarget& target) const;
 
-  int killCount() const { return killCount_; }
-
  private:
   std::vector<Bullet> bullets_;
-  int killCount_ = 0;
 };

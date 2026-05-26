@@ -20,19 +20,18 @@
 
 using namespace Constants;
 
-// ════════════════════════════════════════════════════════════
-//  Đạn boss – quản lý riêng trong Game, không dùng BulletManager
-// ════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════
+// Quản lý đạn của Boss - được xử lý riêng, không qua BulletManager
+// ════════════════════════════════════════════════════════════════
 struct BossBulletLive {
   sf::Vector2f pos;
   sf::Vector2f dir;
   float speed = 240.f;
   float damage = 5.f;
-  float life = 8.f;  // giây tồn tại tối đa
+  float life = 8.f;  // Thời gian tồn tại tối đa (giây)
 };
 
-static std::vector<BossBulletLive>
-    bossBullets_;  // global trong translation unit
+static std::vector<BossBulletLive> bossBullets_;
 
 Game::~Game() = default;
 
@@ -42,13 +41,13 @@ Game::~Game() = default;
 Game::Game()
     : window_(sf::VideoMode({WIN_W, WIN_H}), " Warrior Survivors",
               sf::Style::Default),
-      colMap_(),
       tileMap_(),
-      player_(colMap_),
+      player_(),
       camera_(window_) {
   std::srand(static_cast<unsigned>(std::time(nullptr)));
   window_.setFramerateLimit(60);
 
+  // Khởi tạo bản đồ tilemap và các lớp của bản đồ
   for (int i = 0; i < MapData::TILESET_COUNT; ++i)
     tileMap_.addTileset(MapData::TILESETS[i].filename,
                         MapData::TILESETS[i].firstGid);
@@ -58,14 +57,13 @@ Game::Game()
                       MapData::LAYER_SIZE);
   tileMap_.loadTilesets();
 
-  if (!player_.load()) std::cerr << "[Game] Player textures missing!\n";
-
   FlyEye::loadTextures();
   Zombie::loadTextures();
   Ghost::loadTextures();
   DemonLord::loadTextures();
   ExpOrb::loadTexture();
 
+  // Đăng ký các nhà máy (factory) để tạo ra các loại quái vật
   monsters_.registerFactory(
       "flyeye", [](sf::Vector2f p) { return std::make_unique<FlyEye>(p); });
   monsters_.registerFactory(
@@ -99,10 +97,9 @@ Game::Game()
   HolyBibleSkill::loadTexture("hinh anh\\Sprite-King_Bible.png");
   HolyBibleSkill::loadEvolvedTexture("hinh anh\\Sprite-Unholy_Vespers.png");
 
-  // Tải các ảnh cho bảng nâng cấp kỹ năng
+  // Tải hình ảnh biểu tượng cho bảng nâng cấp kỹ năng
   (void)upgradeIcons_[UpgradeType::Knife].loadFromFile(
-      "hinh anh\\icon_knife.png");  // Sửa lại thành icon-Knife.png nếu ảnh của
-                                    // bạn tên như vậy
+      "hinh anh\\icon_knife.png");
   (void)upgradeIcons_[UpgradeType::LightningRing].loadFromFile(
       "hinh anh\\icon_lightning.png");
   (void)upgradeIcons_[UpgradeType::Garlic].loadFromFile(
@@ -117,6 +114,9 @@ Game::Game()
             << "  F3: Spawn Mini Boss (Ghost)\n"
             << "  F4: Spawn Final Boss (DemonLord)\n"
             << "  F5/F6: Ep Demon Lord sang Phase 2/3\n"
+            << "  F7: Spawn Map Event (Ring)\n"
+            << "  F8: Spawn Map Event (Cross)\n"
+            << "  F9: Spawn Map Event (Surround)\n"
             << "  L : Win game ngay lap tuc\n"
             << "  N : Len cap / mo bang chon ky nang\n\n";
 }
@@ -129,18 +129,19 @@ void Game::applyCharacterClass(int idx) {
   const CharClassDef& def = CharacterClass::DEFS[idx];
   const DifficultyConfig& cfg = DifficultyConfig::get(difficulty_);
 
-  // Load animation theo nhân vật đã chọn (Rogue, Mage,...)
+  // Tải dữ liệu hình ảnh (animation) theo nhân vật đã chọn
   if (!player_.loadForClass(idx)) {
     std::cerr << "[Game] Khong the load texture cho class: " << def.name
               << "\n";
   }
 
+  // Thiết lập các chỉ số cơ bản cho nhân vật
   stats_.maxHp = cfg.playerStartHp + def.bonusHp;
   stats_.hp = stats_.maxHp;
   stats_.damage = 1 + def.bonusDamage;
-  playerSpeed_ = Player::SPEED + def.bonusSpeed;
-  player_.setSpeed(playerSpeed_);  // ← đồng bộ tốc độ vào Player
+  player_.setSpeed(Player::SPEED + def.bonusSpeed);
 
+  // Kích hoạt kỹ năng khởi đầu mặc định của lớp nhân vật
   switch (def.startSkill) {
     case StartingSkill::Knife:
       skillMgr_.applyUpgrade(SkillUpgradeType::Knife);
@@ -169,7 +170,7 @@ void Game::applyDifficulty() {
   const DifficultyConfig& cfg = DifficultyConfig::get(difficulty_);
   monsters_.setMaxMonsters(cfg.maxMonsters);
 
-  // Đăng ký lại factory final_boss với đúng HP theo difficulty
+  // Cập nhật lượng máu của Boss cuối theo độ khó đã chọn
   const int fbHp = cfg.finalBossHp;
   monsters_.registerFactory("final_boss", [fbHp](sf::Vector2f p) {
     return std::make_unique<DemonLord>(p, fbHp);
@@ -184,6 +185,7 @@ void Game::endGame() {
   SoundManager::get().stopMusic();
   SoundManager::get().play(SoundManager::SFX::GAMEOVER);
 
+  // Lưu lại tiến trình hiện tại sau khi kết thúc ván đấu
   saveData_.lastScore = score_.score;
   saveData_.lastCharIndex = selectedChar_;
   saveData_.lastDifficulty =
@@ -238,14 +240,14 @@ void Game::restartGame() {
       {MAP_WIDTH * TILE_RENDER_W / 2.f, MAP_HEIGHT * TILE_RENDER_H / 2.f});
   camera_.reset();
 
-  applyDifficulty();                // đăng ký final_boss factory với HP đúng
-  player_.setSpeed(Player::SPEED);  // reset speed trước
+  applyDifficulty();
+  player_.setSpeed(Player::SPEED);
   applyCharacterClass(selectedChar_);
 
   waveMgr_.init(monsters_, difficulty_);
-  monsters_.spawnInitial(
-      camera_,
-      1);  // Giảm số lượng quái sinh ra ngay lập tức ở đầu game từ 3 xuống 1
+  
+  // Khởi tạo quái vật đầu tiên xuất hiện khi vừa bắt đầu trò chơi
+  monsters_.spawnInitial(camera_, 1);
 
   SoundManager::get().playMusic(SoundManager::BGM::GAME_BGM);
   gameState_ = GameState::Playing;
@@ -297,7 +299,7 @@ void Game::run() {
 }
 
 // ════════════════════════════════════════════════════════════
-//  orbValue  —  nhân đôi exp orb từ phút thứ 3 (180 giây)
+//  Hàm tính toán giá trị điểm kinh nghiệm (nhân đôi sau 3 phút)
 // ════════════════════════════════════════════════════════════
 int Game::orbValue(int base) const {
   return (score_.timeAlive >= 180.f) ? base * 2 : base;
@@ -326,7 +328,7 @@ void Game::update(float dt) {
   for (auto* m : liveMonsters)
     monsterData.push_back({m->getPosition(), static_cast<void*>(m)});
 
-  // ── Skills ───────────────────────────────────────────────
+  // ── Xử lý kỹ năng của người chơi ───────────────────────────
   auto skillResult =
       skillMgr_.update(pPos, facing, moveDir, dt, stats_.damage, monsterData);
 
@@ -376,7 +378,7 @@ void Game::update(float dt) {
     score_.addKill(k.typeId);
   }
 
-  // ── DemonLord: poll outputs trước waveMgr.update ─────────
+  // ── Quản lý DemonLord (Boss cuối) ──────────────────────────
   bool finalBossJustKilled = false;
   finalBossPtr_ = nullptr;
 
@@ -385,41 +387,40 @@ void Game::update(float dt) {
     if (!demon) continue;
     finalBossPtr_ = demon;
 
-    // Projectiles — Boss bắn đạn: push thẳng vào bossBullets_
+    // Xử lý các viên đạn do Boss bắn ra
     for (auto& proj : demon->getPendingProjectiles()) {
       bossBullets_.push_back(
           {proj.origin, proj.direction, proj.speed, proj.damage, 4.f});
     }
     demon->clearProjectiles();
 
-    // Summon
+    // Xử lý kỹ năng triệu hồi quái vật phụ của Boss
     for (auto& s : demon->getPendingSummons())
       monsters_.spawnDirect(s.typeId, s.pos, false);
     demon->clearSummons();
 
-    // AoE pulse (Phase 3)
+    // Xử lý sát thương diện rộng (AoE) ở Phase 3 của Boss
     if (demon->hasPendingAoe()) {
       for (auto& pulse : demon->getPendingAoe()) {
         sf::Vector2f diff = pPos - pulse.origin;
         float dist2 = diff.x * diff.x + diff.y * diff.y;
+        // Kiểm tra xem người chơi có nằm trong vùng nhận sát thương không
         if (dist2 < pulse.radius * pulse.radius && dist2 > 0.f) {
           stats_.takeDamage(pulse.damage);
           SoundManager::get().play(SoundManager::SFX::PLAYER_HIT);
-          // Knockback player: player_.addExternalVelocity nếu có,
-          // nếu không có thì bỏ qua — Player tự xử lý collision
         }
       }
       demon->clearAoe();
     }
 
-    // Melee damage boss gây cho player
+    // Xử lý sát thương cận chiến khi Boss chạm vào người chơi
     int meleeDmg = demon->getAndResetPendingMelee();
     if (meleeDmg > 0) {
       stats_.takeDamage(meleeDmg);
       SoundManager::get().play(SoundManager::SFX::PLAYER_HIT);
     }
 
-    // Phase change HUD
+    // Hiển thị thông báo khi Boss chuyển giai đoạn (Phase)
     DemonPhase curPhase = demon->getPhase();
     if (curPhase != lastDemonPhase_) {
       lastDemonPhase_ = curPhase;
@@ -432,23 +433,23 @@ void Game::update(float dt) {
       }
     }
 
-    // Đánh dấu nếu vừa bị hạ
+    // Kiểm tra xem Boss cuối đã bị tiêu diệt hay chưa
     if (demon->isKilledFlag()) finalBossJustKilled = true;
   }
 
-  // ── WaveManager — truyền finalBossJustKilled ─────────────
+  // ── Quản lý các đợt quái (Wave) ───────────────────────────
   waveMgr_.update(dt, pPos, camera_, monsters_, finalBossJustKilled);
   if (auto msg = waveMgr_.popMessage()) {
     hudMessage_ = *msg;
     hudMessageTimer_ = 3.0f;
   }
 
-  // ── Chiến thắng ──────────────────────────────────────────
+  // ── Kiểm tra điều kiện chiến thắng ─────────────────────────
   if (waveMgr_.isFinalBossDefeated() && !victoryShown_) {
     victoryShown_ = true;
     victoryAnimTime_ = 0.f;
 
-    // Lưu điểm chiến thắng
+    // Lưu lại trạng thái chiến thắng và điểm số
     saveData_.lastScore = score_.score;
     saveData_.lastCharIndex = selectedChar_;
     saveData_.lastDifficulty =
@@ -468,7 +469,7 @@ void Game::update(float dt) {
               << " Time=" << score_.formatTime() << "\n";
   }
 
-  // ── MonsterManager update ────────────────────────────────
+  // ── Xử lý logic của các quái vật trên bản đồ ──────────────
   auto monsterKills = monsters_.update(dt, pPos, camera_);
   for (auto& k : monsterKills) {
     expManager_.spawnOrb(k.pos, orbValue(k.expValue));
@@ -480,7 +481,7 @@ void Game::update(float dt) {
     }
   }
 
-  // ── Damage quái → player (scaled theo difficulty) ────────
+  // ── Tính toán sát thương quái gây ra cho người chơi ──────
   int monsterDmg = monsters_.collectPendingDamage();
   if (monsterDmg > 0) {
     const DifficultyConfig& cfg = DifficultyConfig::get(difficulty_);
@@ -489,7 +490,7 @@ void Game::update(float dt) {
     SoundManager::get().play(SoundManager::SFX::PLAYER_HIT);
   }
 
-  // ── Hồi máu từ nâng cấp Regen ────────────────────────────
+  // ── Cập nhật phục hồi máu (Regen) nếu có ─────────────────
   if (stats_.regenLevel > 0 && stats_.hp < stats_.maxHp) {
     stats_.regenTimer += dt;
     if (stats_.regenTimer >= 1.0f) {
@@ -503,7 +504,7 @@ void Game::update(float dt) {
     return;
   }
 
-  // ── EXP & Level up ───────────────────────────────────────
+  // ── Quét kinh nghiệm (EXP) và xử lý thăng cấp ────────────
   int gained = expManager_.update(dt, pPos);
   if (gained > 0) {
     SoundManager::get().play(SoundManager::SFX::PICKUP_EXP);
@@ -519,10 +520,10 @@ void Game::update(float dt) {
   if (levelUpTimer_ > 0.f) levelUpTimer_ -= dt;
   if (hudMessageTimer_ > 0.f) hudMessageTimer_ -= dt;
 
-  // ── Boss bullets: update vị trí + va chạm player ────────
+  // ── Cập nhật di chuyển và va chạm đạn của Boss ──────────
   {
     sf::Vector2f pp = player_.getPosition();
-    const float HIT_R = 28.f;  // bán kính va chạm với player
+    const float HIT_R = 28.f;
     for (auto& b : bossBullets_) {
       b.pos += b.dir * b.speed * dt;
       b.life -= dt;
@@ -535,7 +536,7 @@ void Game::update(float dt) {
         b.life = -1.f;  // đánh dấu xóa
       }
     }
-    // Xóa đạn hết hạn hoặc trúng player
+    // Loại bỏ các viên đạn hết thời gian hoặc đã chạm mục tiêu
     bossBullets_.erase(
         std::remove_if(bossBullets_.begin(), bossBullets_.end(),
                        [](const BossBulletLive& b) { return b.life <= 0.f; }),
@@ -575,19 +576,17 @@ void Game::processEvents(const sf::Event& event) {
         debugMode_ = !debugMode_;
         break;
 
-      // ── DEMO KEYS (dùng khi demo cho giảng viên) ──────────
-      // F2: Triệu hồi mini boss FlyEye ngay tại vị trí player
+      // ── CÁC PHÍM TẮT HỖ TRỢ DEBUG VÀ DEMO ──────────────────────
       case sf::Keyboard::Key::F2:
         if (gameState_ == GameState::Playing) {
           sf::Vector2f pp = player_.getPosition();
           sf::Vector2f spawnOff = {120.f, 0.f};
-          monsters_.spawnDirect("flyeye", pp + spawnOff, true);  // isBoss=true
+          monsters_.spawnDirect("flyeye", pp + spawnOff, true);
           hudMessage_ = "[F2] MINI BOSS xuat hien!";
           hudMessageTimer_ = 2.5f;
         }
         break;
 
-      // F3: Triệu hồi mini boss Ghost ngay tại vị trí player
       case sf::Keyboard::Key::F3:
         if (gameState_ == GameState::Playing) {
           sf::Vector2f pp = player_.getPosition();
@@ -597,7 +596,6 @@ void Game::processEvents(const sf::Event& event) {
         }
         break;
 
-      // F4: Triệu hồi final boss DemonLord
       case sf::Keyboard::Key::F4:
         if (gameState_ == GameState::Playing) {
           sf::Vector2f pp = player_.getPosition();
@@ -608,7 +606,6 @@ void Game::processEvents(const sf::Event& event) {
         }
         break;
 
-      // F5: Ép DemonLord sang Phase 2
       case sf::Keyboard::Key::F5:
         if (gameState_ == GameState::Playing && finalBossPtr_) {
           finalBossPtr_->debugForcePhase(2);
@@ -617,7 +614,6 @@ void Game::processEvents(const sf::Event& event) {
         }
         break;
 
-      // F6: Ép DemonLord sang Phase 3
       case sf::Keyboard::Key::F6:
         if (gameState_ == GameState::Playing && finalBossPtr_) {
           finalBossPtr_->debugForcePhase(3);
@@ -626,7 +622,27 @@ void Game::processEvents(const sf::Event& event) {
         }
         break;
 
-      // L: Win game ngay lập tức (demo thắng game)
+      case sf::Keyboard::Key::F7:
+        if (gameState_ == GameState::Playing) {
+          waveMgr_.forceMapEvent(MapEventPattern::Ring, "flyeye", 30, 600.f,
+                                 "[F7] DEMO: RING EVENT");
+        }
+        break;
+
+      case sf::Keyboard::Key::F8:
+        if (gameState_ == GameState::Playing) {
+          waveMgr_.forceMapEvent(MapEventPattern::Cross, "zombie", 24, 600.f,
+                                 "[F8] DEMO: CROSS EVENT");
+        }
+        break;
+
+      case sf::Keyboard::Key::F9:
+        if (gameState_ == GameState::Playing) {
+          waveMgr_.forceMapEvent(MapEventPattern::Surround, "slime", 20, 600.f,
+                                 "[F9] DEMO: SURROUND EVENT");
+        }
+        break;
+
       case sf::Keyboard::Key::L:
         if (gameState_ == GameState::Playing && !victoryShown_) {
           victoryShown_ = true;
@@ -651,7 +667,6 @@ void Game::processEvents(const sf::Event& event) {
         }
         break;
 
-      // N: Lên cấp ngay lập tức (mở bảng chọn upgrade)
       case sf::Keyboard::Key::N:
         if (gameState_ == GameState::Playing && !paused_) {
           score_.addLevelUp(expManager_.getLevel() + 1);
@@ -663,7 +678,7 @@ void Game::processEvents(const sf::Event& event) {
           hudMessageTimer_ = 2.0f;
         }
         break;
-        // ── END DEMO KEYS ──────────────────────────────────────
+        // ── KẾT THÚC CÁC PHÍM TẮT HỖ TRỢ DEBUG ───────────────────────
 
       case sf::Keyboard::Key::Num1:
         if (paused_ && upgradeOptions_.size() > 0)
@@ -757,16 +772,17 @@ void Game::render() {
 }
 
 // ════════════════════════════════════════════════════════════
-//  Upgrade system
+//  Hệ thống nâng cấp kỹ năng khi lên cấp
 // ════════════════════════════════════════════════════════════
 void Game::buildUpgradeOptions() {
   std::vector<UpgradeOption> pool;
 
+  // Tăng sát thương cơ bản
   pool.push_back({UpgradeType::Damage, "TANG DAME", "Tang sat thuong +0.2",
                   sf::Color(220, 60, 60)});
 
-  // Regen (Hồi máu)
-  if (stats_.regenLevel < 5) {  // Cấu hình tối đa 5 level
+  // Kỹ năng Hồi máu (tối đa cấp 5)
+  if (stats_.regenLevel < 5) {
     pool.push_back(
         {UpgradeType::Regen,
          "HOI MAU Lv" + std::to_string(stats_.regenLevel + 1),
@@ -775,7 +791,7 @@ void Game::buildUpgradeOptions() {
          sf::Color(50, 220, 80)});
   }
 
-  // Knife
+  // Kỹ năng Dao (Knife)
   if (!skillMgr_.hasKnife())
     pool.push_back({UpgradeType::Knife, "KNIFE", "Dao bay theo huong",
                     sf::Color(200, 200, 60)});
@@ -787,7 +803,7 @@ void Game::buildUpgradeOptions() {
                     "KNIFE Lv" + std::to_string(skillMgr_.getKnifeLevel() + 1),
                     "Tang so dao & toc do", sf::Color(200, 200, 60)});
 
-  // Lightning
+  // Kỹ năng Sét (Lightning)
   if (!skillMgr_.hasLightning())
     pool.push_back({UpgradeType::LightningRing, "LIGHTNING",
                     "Set danh quai gan", sf::Color(100, 180, 255)});
@@ -800,7 +816,7 @@ void Game::buildUpgradeOptions() {
          "LIGHTNING Lv" + std::to_string(skillMgr_.getLightningLevel() + 1),
          "Tang dame & vung set", sf::Color(100, 180, 255)});
 
-  // Garlic
+  // Kỹ năng Tỏi (Garlic)
   if (!skillMgr_.hasGarlic())
     pool.push_back({UpgradeType::Garlic, "GARLIC", "Vung AoE day lui quai",
                     sf::Color(180, 255, 100)});
@@ -813,7 +829,7 @@ void Game::buildUpgradeOptions() {
          "GARLIC Lv" + std::to_string(skillMgr_.getGarlicLevel() + 1),
          "Tang range & knockback", sf::Color(160, 230, 80)});
 
-  // ── Bible (MỚI) ──────────────────────────────────────────────────────────
+  // Kỹ năng Sách Thánh (Holy Bible)
   if (!skillMgr_.hasBible())
     pool.push_back({UpgradeType::HolyBible, "SACH THANH",
                     "Mo khoa: sach bay orbit, gay damage khi cham quai",
@@ -826,6 +842,7 @@ void Game::buildUpgradeOptions() {
     pool.push_back({UpgradeType::HolyBible, skillMgr_.getBibleUpgradeTitle(),
                     skillMgr_.getBibleUpgradeDesc(), sf::Color(200, 170, 255)});
 
+  // Lựa chọn ngẫu nhiên 3 kỹ năng để hiển thị
   auto rng = std::default_random_engine{std::random_device{}()};
   std::shuffle(pool.begin(), pool.end(), rng);
   for (int i = 0; i < 3; ++i) upgradeOptions_[i] = pool[i % pool.size()];
@@ -834,8 +851,6 @@ void Game::buildUpgradeOptions() {
 void Game::applyUpgrade(UpgradeType t) {
   switch (t) {
     case UpgradeType::Damage:
-      // Thay vì gọi stats_.upgradeDamage() (mặc định +1)
-      // Ta cộng trực tiếp lượng damage mong muốn
       stats_.damage += 0.2f;
       break;
     case UpgradeType::AttackSpeed:
@@ -855,7 +870,7 @@ void Game::applyUpgrade(UpgradeType t) {
       break;
     case UpgradeType::HolyBible:
       skillMgr_.applyUpgrade(SkillUpgradeType::HolyBible);
-      break;  // ← đổi
+      break;
   }
   paused_ = false;
   hoveredCard_ = -1;
@@ -985,7 +1000,7 @@ void Game::renderHUD() {
       box.setPosition({ix, iy});
       window_.draw(box);
 
-      // Icon texture
+      // Hiển thị hình ảnh kỹ năng tương ứng
       auto it = upgradeIcons_.find(slots[i].type);
       if (it != upgradeIcons_.end()) {
         sf::Sprite icon(it->second);
@@ -993,7 +1008,8 @@ void Game::renderHUD() {
         float scale =
             (iconSize - 4.f) / static_cast<float>(std::max(ts.x, ts.y));
         icon.setScale({scale, scale});
-        // Căn giữa trong ô
+        
+        // Căn giữa biểu tượng trong ô
         float sw = ts.x * scale, sh = ts.y * scale;
         icon.setPosition(
             {ix + (iconSize - sw) / 2.f, iy + (iconSize - sh) / 2.f});
@@ -1030,7 +1046,7 @@ void Game::renderHUD() {
     }
   }
 
-  // Timer (thời gian sống sót) ở giữa phía trên
+  // Hiển thị bộ đếm thời gian sống sót ở giữa cạnh trên
   {
     sf::Text timerText(font_, score_.formatTime(), 28);
     timerText.setFillColor(sf::Color::White);
@@ -1042,13 +1058,13 @@ void Game::renderHUD() {
     window_.draw(timerText);
   }
 
-  // Score và Best Score ở góc phải phía trên
+  // Hiển thị Điểm hiện tại và Điểm cao nhất ở góc trên bên phải
   {
     int bestScore = (difficulty_ == Difficulty::Hard) ? saveData_.highScoreHard
                                                       : saveData_.highScoreEasy;
 
     sf::Text scoreText(font_, "Score: " + std::to_string(score_.score), 20);
-    scoreText.setFillColor(sf::Color(255, 230, 60));  // Màu vàng
+    scoreText.setFillColor(sf::Color(255, 230, 60));
     scoreText.setOutlineColor(sf::Color::Black);
     scoreText.setOutlineThickness(2.f);
     auto sb = scoreText.getLocalBounds();
@@ -1056,7 +1072,7 @@ void Game::renderHUD() {
     window_.draw(scoreText);
 
     sf::Text bestText(font_, "Best: " + std::to_string(bestScore), 16);
-    bestText.setFillColor(sf::Color(100, 200, 255));  // Màu xanh sáng
+    bestText.setFillColor(sf::Color(100, 200, 255));
     bestText.setOutlineColor(sf::Color::Black);
     bestText.setOutlineThickness(2.f);
     auto bb = bestText.getLocalBounds();
@@ -1188,11 +1204,6 @@ void Game::updateHover(sf::Vector2i mouse) {
   }
 }
 
-sf::Vector2f Game::mouseToWorld() const {
-  return window_.mapPixelToCoords(sf::Mouse::getPosition(window_),
-                                  camera_.getView());
-}
-
 void Game::renderUpgradeScreen() {
   auto winSize = window_.getSize();
   float winW = static_cast<float>(winSize.x);
@@ -1255,14 +1266,14 @@ void Game::renderUpgradeScreen() {
     keyT.setPosition({cx + cardW / 2.f, cardY + 40.f});
     window_.draw(keyT);
 
-    // Vẽ ảnh Icon kỹ năng
+    // Vẽ biểu tượng kỹ năng
     auto iconIt = upgradeIcons_.find(opt.type);
     if (iconIt != upgradeIcons_.end()) {
       sf::Sprite iconSpr(iconIt->second);
       auto b2 = iconSpr.getLocalBounds();
       iconSpr.setOrigin({b2.size.x / 2.f, b2.size.y / 2.f});
       iconSpr.setPosition({cx + cardW / 2.f, cardY + 95.f});
-      // Giữ tỉ lệ tự động lọt vừa khoảng không (64x64)
+      // Điều chỉnh tỷ lệ kích thước sao cho vừa khít với không gian 64x64
       float scale = 64.f / std::max(b2.size.x, b2.size.y);
       iconSpr.setScale({scale, scale});
       window_.draw(iconSpr);

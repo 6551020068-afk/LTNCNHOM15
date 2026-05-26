@@ -23,7 +23,6 @@ class MenuSystem {
       : window_(window), font_(font) {}
 
   void init() {
-    // FIX: Luôn lấy kích thước thực tế tại thời điểm init
     updateWinSize();
     fadeAlpha_ = 255.f;
     screen_ = MenuScreen::MainMenu;
@@ -730,8 +729,8 @@ class MenuSystem {
   std::array<float, 4> diffEasyRect_ = {};
   std::array<float, 4> diffHardRect_ = {};
 
-  mutable std::array<float, 4> settingsSfxRect_ = {};
-  mutable std::array<float, 4> settingsMusicRect_ = {};
+  std::array<float, 4> settingsSfxRect_ = {};
+  std::array<float, 4> settingsMusicRect_ = {};
   std::array<float, 4> settingsBackRect_ = {};
   std::array<sf::Texture, CharacterClass::CLASS_COUNT> weaponIconTextures_;
   std::array<sf::Texture, CharacterClass::CLASS_COUNT> charSpriteTextures_;

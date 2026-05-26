@@ -92,7 +92,7 @@ std::vector<KillInfo> MonsterManager::update(float dt, sf::Vector2f playerPos,
           spawnOne(entry.id, playerPos, cam, entry.isBoss);
       }
     }
-  }  // ← đóng if TẠI ĐÂY, chỉ bọc phần spawn
+  }
 
   // ── 2. Despawn (thường) + Boss teleport ── luôn chạy ─────
   for (auto& m : monsters_) {

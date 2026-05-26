@@ -1,13 +1,15 @@
 #pragma once
 // ════════════════════════════════════════════════════════════
-//  SaveSystem.hpp  —  Lưu và tải dữ liệu game
+// Quản lý Lưu và Tải dữ liệu trò chơi (Save/Load System)
 //
-//  Lưu vào file text đơn giản (key=value), dễ đọc / debug.
-//  Xử lý ngoại lệ đầy đủ: file không tồn tại, dữ liệu hỏng.
+// Dữ liệu được lưu dưới dạng văn bản (key=value) để dễ đọc và kiểm tra.
+// Tích hợp xử lý ngoại lệ khi file không tồn tại hoặc dữ liệu bị hỏng.
 //
-//  Dữ liệu lưu:
-//    - High score (theo từng độ khó)
-//    - Lần chơi cuối: class, score, thời gian sống, kills
+// Các dữ liệu được lưu bao gồm:
+// - Điểm cao nhất (High Score) phân theo độ khó.
+// - Thông tin lần chơi cuối: nhân vật, điểm số, thời gian sinh tồn, số quái
+// diệt.
+// - Tiến trình nâng cấp vĩnh viễn hệ thống (Meta Progression).
 // ════════════════════════════════════════════════════════════
 #include <fstream>
 #include <iostream>
@@ -18,20 +20,20 @@
 
 #include "ScoreSystem.hpp"
 
-// ── Dữ liệu 1 lần chơi ───────────────────────────────────────
+// Cấu trúc lưu trữ toàn bộ dữ liệu của người chơi
 struct SaveData {
-  // High scores
+  // Điểm cao nhất
   int highScoreEasy = 0;
   int highScoreHard = 0;
 
-  // Lần chơi gần nhất
+  // Dữ liệu của ván chơi gần nhất
   int lastScore = 0;
   int lastCharIndex = 0;
   std::string lastDifficulty = "Easy";
   int lastKills = 0;
   float lastTimeAlive = 0.f;
 
-  // ── Thêm các biến Hệ thống Nâng cấp (Meta Progression) ──
+  // Tiến trình nâng cấp chỉ số vĩnh viễn (Meta Progression)
   int totalCoins = 0;
   int metaHpLevel = 0;
   int metaDamageLevel = 0;
@@ -43,8 +45,7 @@ class SaveSystem {
  public:
   static constexpr const char* SAVE_FILE = "savegame.dat";
 
-  // ── Lưu file ─────────────────────────────────────────────
-  // Ném std::runtime_error nếu không thể ghi file
+  // Ghi dữ liệu vào file (Ném ngoại lệ std::runtime_error nếu thất bại)
   static void save(const SaveData& data) {
     std::ofstream f(SAVE_FILE);
     if (!f.is_open())
@@ -69,15 +70,13 @@ class SaveSystem {
     std::cout << "[SaveSystem] Da luu: " << SAVE_FILE << "\n";
   }
 
-  // ── Tải file ─────────────────────────────────────────────
-  // Trả về SaveData mặc định nếu file không tồn tại.
-  // Ném std::runtime_error nếu file tồn tại nhưng dữ liệu hỏng.
+  // Đọc dữ liệu từ file (Trả về giá trị mặc định nếu file không tồn tại)
   static SaveData load() {
     SaveData data;
     std::ifstream f(SAVE_FILE);
     if (!f.is_open()) {
-      std::cout << "[SaveSystem] Chua co file luu — dung gia tri mac dinh.\n";
-      return data;  // lần đầu chơi
+      std::cout << "[SaveSystem] Chua co file luu. Su dung gia tri mac dinh.\n";
+      return data;
     }
     std::unordered_map<std::string, std::string> kv;
     std::string line;
@@ -92,7 +91,7 @@ class SaveSystem {
       kv[line.substr(0, pos)] = line.substr(pos + 1);
     }
 
-    // Parse từng key — bọc try/catch cho stoi/stof
+    // Chuyển đổi và gán dữ liệu vào cấu trúc SaveData
     try {
       if (kv.count("highScoreEasy"))
         data.highScoreEasy = std::stoi(kv["highScoreEasy"]);
@@ -107,7 +106,7 @@ class SaveSystem {
       if (kv.count("lastTimeAlive"))
         data.lastTimeAlive = std::stof(kv["lastTimeAlive"]);
 
-      // Đọc dữ liệu Upgrade
+      // Đọc tiến trình nâng cấp vĩnh viễn (nếu có)
       if (kv.count("totalCoins")) data.totalCoins = std::stoi(kv["totalCoins"]);
       if (kv.count("metaHpLevel"))
         data.metaHpLevel = std::stoi(kv["metaHpLevel"]);
@@ -120,18 +119,18 @@ class SaveSystem {
                                e.what());
     }
 
-    // Validate giá trị hợp lệ
+    // Kiểm tra tính hợp lệ của dữ liệu
     if (data.highScoreEasy < 0 || data.highScoreHard < 0)
       throw std::runtime_error("[SaveSystem] High score am - du lieu bi loi.");
     if (data.lastCharIndex < 0 || data.lastCharIndex > 2)
-      data.lastCharIndex = 0;  // reset về mặc định
+      data.lastCharIndex = 0;
 
     std::cout << "[SaveSystem] Da tai: highEasy=" << data.highScoreEasy
               << " highHard=" << data.highScoreHard << "\n";
     return data;
   }
 
-  // ── Cập nhật high score sau mỗi lần chơi ─────────────────
+  // Cập nhật điểm kỷ lục sau mỗi ván đấu
   static void updateHighScore(SaveData& data, int score, Difficulty diff) {
     if (diff == Difficulty::Hard) {
       if (score > data.highScoreHard) data.highScoreHard = score;
@@ -140,7 +139,7 @@ class SaveSystem {
     }
   }
 
-  // ── Xóa file save ─────────────────────────────────────────
+  // Xóa file lưu trữ game hiện tại
   static void deleteSave() {
     if (std::remove(SAVE_FILE) == 0)
       std::cout << "[SaveSystem] Da xoa file luu.\n";
